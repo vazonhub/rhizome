@@ -1,0 +1,26 @@
+{
+  "name": "rhizome",
+  "version": "1.0.0",
+  "description": "Rhizome is a protocol for the independent transfer of information between network clients.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vazonhub/rhizome.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/vazonhub/rhizome/issues"
+  },
+  "homepage": "https://github.com/vazonhub/rhizome#readme",
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
