@@ -4,7 +4,7 @@
   "description": "Rhizome is a protocol for the independent transfer of information between network clients.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "ts-node src/main.ts"
   },
   "repository": {
     "type": "git",
@@ -22,5 +22,8 @@
     "@types/node": "^24.7.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "dgram": "^1.0.1"
   }
 }
