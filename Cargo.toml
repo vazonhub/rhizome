@@ -1,10 +1,18 @@
 [package]
 name = "rhizome"
 version = "0.1.0"
-edition = "2024"
-
-[dependencies]
+edition = "2025"
+description = "Rhizome - independence data transfer protocol"
+license = "MIT OR Apache-2.0"
 
 [lib]
 name = "rhizome"
-crate-type = ["cdylib"]  # для динамических библиотек (.dll, .so, .dylib)
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[features]
+default = ["wasm"]
+wasm = ["wasm-bindgen"]
+ffi = []
