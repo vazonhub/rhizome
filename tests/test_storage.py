@@ -2,11 +2,12 @@
 Тесты для модуля хранения
 """
 
-import pytest
 import asyncio
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
+
+import pytest
 
 from rhizome.config import StorageConfig
 from rhizome.storage.storage import Storage
@@ -29,10 +30,10 @@ async def test_storage_put_get(temp_storage):
     key = b"test_key"
     value = b"test_value"
     ttl = 3600
-    
+
     await temp_storage.put(key, value, ttl)
     retrieved = await temp_storage.get(key)
-    
+
     assert retrieved == value
 
 
@@ -41,10 +42,10 @@ async def test_storage_delete(temp_storage):
     """Тест удаления данных"""
     key = b"test_key"
     value = b"test_value"
-    
+
     await temp_storage.put(key, value, 3600)
     await temp_storage.delete(key)
-    
+
     retrieved = await temp_storage.get(key)
     assert retrieved is None
 
@@ -54,13 +55,12 @@ async def test_storage_extend_ttl(temp_storage):
     """Тест продления TTL"""
     key = b"test_key"
     value = b"test_value"
-    
+
     await temp_storage.put(key, value, 3600)
     result = await temp_storage.extend_ttl(key, extension=0.1)
-    
+
     assert result is True
-    
+
     # Проверяем, что данные все еще доступны
     retrieved = await temp_storage.get(key)
     assert retrieved == value
-

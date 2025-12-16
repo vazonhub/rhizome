@@ -3,13 +3,13 @@
 """
 
 from .crypto import (
-    generate_node_id,
     compute_distance,
+    generate_node_id,
     hash_key,
-    save_node_id,
     load_node_id,
+    save_node_id,
 )
-from .serialization import serialize, deserialize
+from .serialization import deserialize, serialize
 
 __all__ = [
     "generate_node_id",
@@ -20,4 +20,3 @@ __all__ = [
     "serialize",
     "deserialize",
 ]
-

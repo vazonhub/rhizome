@@ -2,9 +2,9 @@
 Модуль механизма популярности
 """
 
+from .exchanger import PopularityExchanger
 from .metrics import MetricsCollector, PopularityMetrics
 from .ranking import PopularityRanker
-from .exchanger import PopularityExchanger
 
 __all__ = [
     "MetricsCollector",
@@ -12,4 +12,3 @@ __all__ = [
     "PopularityRanker",
     "PopularityExchanger",
 ]
-

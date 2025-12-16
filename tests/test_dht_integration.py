@@ -2,19 +2,28 @@
 Интеграционные тесты для DHT операций
 """
 
-import pytest
 import asyncio
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
 
-from rhizome.config import Config, DHTConfig, StorageConfig, NetworkConfig, NodeConfig, PopularityConfig, SecurityConfig
-from rhizome.dht.node import NodeID, Node
-from rhizome.dht.routing_table import RoutingTable
+import pytest
+
+from rhizome.config import (
+    Config,
+    DHTConfig,
+    NetworkConfig,
+    NodeConfig,
+    PopularityConfig,
+    SecurityConfig,
+    StorageConfig,
+)
+from rhizome.dht.node import Node, NodeID
 from rhizome.dht.protocol import DHTProtocol
+from rhizome.dht.routing_table import RoutingTable
+from rhizome.exceptions import ValueNotFoundError
 from rhizome.storage.storage import Storage
 from rhizome.utils.crypto import generate_node_id, hash_key
-from rhizome.exceptions import ValueNotFoundError
 
 
 @pytest.fixture
@@ -31,7 +40,7 @@ def storage_config(temp_dir):
     return StorageConfig(
         data_dir=temp_dir / "storage",
         max_storage_size=100 * 1024 * 1024,  # 100 MB
-        default_ttl=3600
+        default_ttl=3600,
     )
 
 
@@ -49,11 +58,11 @@ async def test_store_and_get_local(dht_protocol):
     """Тест локального сохранения и получения"""
     key = hash_key("test_key")
     value = b"test_value"
-    
+
     # Сохраняем
     result = await dht_protocol.store(key, value, ttl=3600)
     assert result is True
-    
+
     # Получаем
     retrieved = await dht_protocol.storage.get(key)
     assert retrieved == value
@@ -64,10 +73,10 @@ async def test_find_value_local(dht_protocol):
     """Тест поиска значения в локальном хранилище"""
     key = hash_key("test_key")
     value = b"test_value"
-    
+
     # Сохраняем
     await dht_protocol.store(key, value, ttl=3600)
-    
+
     # Ищем
     found = await dht_protocol.find_value(key)
     assert found == value
@@ -77,7 +86,7 @@ async def test_find_value_local(dht_protocol):
 async def test_find_value_not_found(dht_protocol):
     """Тест поиска несуществующего значения"""
     key = hash_key("nonexistent_key")
-    
+
     # Ищем несуществующий ключ
     with pytest.raises(ValueNotFoundError):
         await dht_protocol.find_value(key)
@@ -90,18 +99,14 @@ async def test_routing_table_add_node(dht_protocol):
     nodes = []
     for i in range(5):
         node_id = NodeID(id=generate_node_id())
-        node = Node(
-            node_id=node_id,
-            address="127.0.0.1",
-            port=8468 + i
-        )
+        node = Node(node_id=node_id, address="127.0.0.1", port=8468 + i)
         nodes.append(node)
-    
+
     # Добавляем узлы
     for node in nodes:
         result = dht_protocol.routing_table.add_node(node)
         assert result is True
-    
+
     # Проверяем, что узлы добавлены
     all_nodes = dht_protocol.routing_table.get_all_nodes()
     assert len(all_nodes) >= len(nodes)
@@ -115,16 +120,11 @@ async def test_find_closest_nodes(dht_protocol):
     nodes = []
     for i in range(10):
         node_id = NodeID(id=generate_node_id())
-        node = Node(
-            node_id=node_id,
-            address="127.0.0.1",
-            port=8468 + i
-        )
+        node = Node(node_id=node_id, address="127.0.0.1", port=8468 + i)
         nodes.append(node)
         dht_protocol.routing_table.add_node(node)
-    
+
     # Ищем ближайшие узлы
     closest = dht_protocol.routing_table.find_closest_nodes(target_id, count=5)
     assert len(closest) <= 5
     assert len(closest) > 0
-

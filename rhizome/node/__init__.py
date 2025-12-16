@@ -3,10 +3,10 @@
 """
 
 from .base_node import BaseNode
-from .seed_node import SeedNode
 from .full_node import FullNode
 from .light_node import LightNode
 from .mobile_node import MobileNode
+from .seed_node import SeedNode
 
 __all__ = [
     "BaseNode",
@@ -15,4 +15,3 @@ __all__ = [
     "LightNode",
     "MobileNode",
 ]
-

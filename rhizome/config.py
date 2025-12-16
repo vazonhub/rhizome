@@ -16,6 +16,7 @@ load_dotenv()
 @dataclass
 class DHTConfig:
     """Конфигурация DHT"""
+
     k: int = 20  # Размер k-бакета
     alpha: int = 3  # Количество параллельных запросов
     node_id_bits: int = 160  # Размер Node ID в битах
@@ -28,6 +29,7 @@ class DHTConfig:
 @dataclass
 class StorageConfig:
     """Конфигурация хранилища"""
+
     data_dir: Path = Path("data")
     max_storage_size: int = 10 * 1024 * 1024 * 1024  # 10 GB по умолчанию
     default_ttl: int = 86400  # 1 день в секундах
@@ -40,6 +42,7 @@ class StorageConfig:
 @dataclass
 class NetworkConfig:
     """Конфигурация сети"""
+
     listen_host: str = "0.0.0.0"
     listen_port: int = 8468
     bootstrap_nodes: list[str] = None
@@ -50,6 +53,7 @@ class NetworkConfig:
 @dataclass
 class NodeConfig:
     """Конфигурация узла"""
+
     node_type: str = "full"  # seed, full, light, mobile
     auto_detect_type: bool = True
     node_id_file: Path = Path("node_id.pem")
@@ -59,6 +63,7 @@ class NodeConfig:
 @dataclass
 class PopularityConfig:
     """Конфигурация механизма популярности"""
+
     update_interval: int = 3600  # Обновление рейтинга каждый час
     exchange_interval: int = 21600  # Обмен топ-100 каждые 6 часов
     global_update_interval: int = 10800  # Глобальное обновление каждые 3 часа
@@ -69,6 +74,7 @@ class PopularityConfig:
 @dataclass
 class SecurityConfig:
     """Конфигурация безопасности"""
+
     enable_ring_signatures: bool = True
     ring_size: int = 8  # Размер группы для кольцевых подписей
     enable_stealth_addresses: bool = True
@@ -81,6 +87,7 @@ class SecurityConfig:
 @dataclass
 class Config:
     """Главная конфигурация"""
+
     dht: DHTConfig
     storage: StorageConfig
     network: NetworkConfig
@@ -95,27 +102,35 @@ class Config:
         """Загрузка конфигурации из файла"""
         if config_path is None:
             config_path = Path("config.yaml")
-        
+
         if config_path.exists():
             with open(config_path, "r") as f:
                 config_data = yaml.safe_load(f)
         else:
             config_data = {}
-        
+
         return cls(
             dht=DHTConfig(**config_data.get("dht", {})),
             storage=StorageConfig(
                 data_dir=Path(config_data.get("storage", {}).get("data_dir", "data")),
-                **{k: v for k, v in config_data.get("storage", {}).items() if k != "data_dir"}
+                **{k: v for k, v in config_data.get("storage", {}).items() if k != "data_dir"},
             ),
             network=NetworkConfig(
                 bootstrap_nodes=config_data.get("network", {}).get("bootstrap_nodes", []),
-                **{k: v for k, v in config_data.get("network", {}).items() if k != "bootstrap_nodes"}
+                **{
+                    k: v
+                    for k, v in config_data.get("network", {}).items()
+                    if k != "bootstrap_nodes"
+                },
             ),
             node=NodeConfig(
                 node_id_file=Path(config_data.get("node", {}).get("node_id_file", "node_id.pem")),
                 state_file=Path(config_data.get("node", {}).get("state_file", "node_state.json")),
-                **{k: v for k, v in config_data.get("node", {}).items() if k not in ["node_id_file", "state_file"]}
+                **{
+                    k: v
+                    for k, v in config_data.get("node", {}).items()
+                    if k not in ["node_id_file", "state_file"]
+                },
             ),
             popularity=PopularityConfig(**config_data.get("popularity", {})),
             security=SecurityConfig(**config_data.get("security", {})),
@@ -175,10 +190,9 @@ class Config:
             },
             "log_level": self.log_level,
         }
-        
+
         if self.log_file:
             config_data["log_file"] = str(self.log_file)
-        
+
         with open(config_path, "w") as f:
             yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
-

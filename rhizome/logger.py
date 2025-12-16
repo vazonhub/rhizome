@@ -11,18 +11,16 @@ import structlog
 
 
 def setup_logging(
-    log_level: str = "INFO",
-    log_file: Optional[Path] = None,
-    node_id: Optional[str] = None
+    log_level: str = "INFO", log_file: Optional[Path] = None, node_id: Optional[str] = None
 ) -> structlog.BoundLogger:
     """
     Настройка системы логирования
-    
+
     Args:
         log_level: Уровень логирования (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         log_file: Путь к файлу логов (опционально)
         node_id: ID узла для добавления в логи
-    
+
     Returns:
         Настроенный логгер
     """
@@ -43,32 +41,34 @@ def setup_logging(
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )
-    
+
     # Настройка стандартного logging
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout if not log_file else None,
         level=getattr(logging, log_level.upper()),
-        handlers=[
-            logging.FileHandler(log_file) if log_file else logging.StreamHandler(sys.stdout)
-        ] if log_file else None,
+        handlers=(
+            [logging.FileHandler(log_file) if log_file else logging.StreamHandler(sys.stdout)]
+            if log_file
+            else None
+        ),
     )
-    
+
     # Создание логгера с контекстом узла
     logger = structlog.get_logger()
     if node_id:
         logger = logger.bind(node_id=node_id[:16])  # Первые 16 символов для краткости
-    
+
     return logger
 
 
 def get_logger(name: Optional[str] = None) -> structlog.BoundLogger:
     """
     Получение логгера для модуля
-    
+
     Args:
         name: Имя модуля (опционально)
-    
+
     Returns:
         Логгер
     """
@@ -76,4 +76,3 @@ def get_logger(name: Optional[str] = None) -> structlog.BoundLogger:
     if name:
         logger = logger.bind(module=name)
     return logger
-
