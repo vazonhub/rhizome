@@ -9,6 +9,7 @@ from rhizome.dht.node import Node, NodeID
 from rhizome.dht.routing_table import RoutingTable
 from rhizome.utils.crypto import compute_distance
 from rhizome.exceptions import DHTError, NodeNotFoundError, ValueNotFoundError
+from rhizome.logger import get_logger
 
 if TYPE_CHECKING:
     from rhizome.storage.storage import Storage
@@ -28,6 +29,7 @@ class DHTProtocol:
         self.storage = storage
         self.network_protocol = network_protocol
         self.alpha = 3  # Количество параллельных запросов
+        self.logger = get_logger("dht.protocol")
     
     async def ping(self, node: Node) -> bool:
         """
@@ -255,5 +257,6 @@ class DHTProtocol:
             
             return success_count > 0
         
-        return False
+        # Данные успешно сохранены локально, даже если нет других узлов для репликации
+        return True
 
