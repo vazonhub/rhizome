@@ -44,4 +44,12 @@ jobs:
     - name: Check package
       run: |
         twine check dist/*
+    
+    - name: Publish to PyPI
+      if: github.event_name == 'release'
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        twine upload dist/*
 
