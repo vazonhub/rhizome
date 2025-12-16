@@ -54,8 +54,6 @@ rhizome = "rhizome.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["rhizome*"]
-exclude = ["tests*", "examples*", "venv*", "*.egg-info*"]
 
 [tool.black]
 line-length = 100
