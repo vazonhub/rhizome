@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rhizome"
-version = "0.1.0"
+version = "0.0.1"
 description = "Децентрализованная P2P сеть на Kademlia DHT с системой seed-узлов"
 readme = "README.md"
 requires-python = ">=3.10"
