@@ -3,6 +3,10 @@
 """
 
 import asyncio
+import json
+import os
+import random
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
@@ -32,6 +36,14 @@ class BaseNode:
 
     def __init__(self, config: Config):
         self.config = config
+
+        # Автоматическая классификация типа узла если включена
+        if config.node.auto_detect_type:
+            detected_type = self._detect_node_type(config)
+            if detected_type:
+                config.node.node_type = detected_type
+                self.logger.info("Node type auto-detected", detected_type=detected_type)
+
         self.node_type = config.node.node_type
 
         if self.node_type not in self.NODE_TYPES:
@@ -101,6 +113,9 @@ class BaseNode:
         self.is_running = False
         self.start_time: Optional[float] = None
 
+        # Загрузка состояния если есть
+        self._load_state()
+
         self.logger.info("Node initialized", node_id=self.node_id.id.hex()[:16])
 
     def _load_or_generate_node_id(self) -> NodeID:
@@ -120,6 +135,52 @@ class BaseNode:
             self.logger.info("Node ID loaded from file", file=str(node_id_file))
 
         return NodeID(id=node_id_bytes)
+
+    def _detect_node_type(self, config: Config) -> Optional[str]:
+        """
+        Автоматическое определение типа узла на основе доступных ресурсов
+
+        Returns:
+            Тип узла или None если определение не удалось
+        """
+        try:
+            # Проверяем доступное дисковое пространство
+            storage_path = config.storage.data_dir
+            storage_path.mkdir(parents=True, exist_ok=True)
+
+            # Получаем доступное дисковое пространство (кроссплатформенный способ)
+            try:
+                if hasattr(shutil, "disk_usage"):
+                    # Python 3.3+
+                    usage = shutil.disk_usage(storage_path)
+                    available_bytes = usage.free
+                elif os.name == "posix":
+                    # Unix-подобные системы
+                    stat = os.statvfs(storage_path)
+                    available_bytes = stat.f_bavail * stat.f_frsize
+                else:
+                    # Windows (приблизительная оценка)
+                    available_bytes = 10 * 1024 * 1024 * 1024  # 10 GB по умолчанию
+            except (OSError, AttributeError):
+                # Если не удалось определить, возвращаем None
+                return None
+
+            # Пороги для классификации (в байтах)
+            SEED_THRESHOLD = 100 * 1024 * 1024 * 1024  # 100 GB
+            FULL_THRESHOLD = 10 * 1024 * 1024 * 1024  # 10 GB
+            LIGHT_THRESHOLD = 1024 * 1024 * 1024  # 1 GB
+
+            if available_bytes >= SEED_THRESHOLD:
+                return "seed"
+            elif available_bytes >= FULL_THRESHOLD:
+                return "full"
+            elif available_bytes >= LIGHT_THRESHOLD:
+                return "light"
+            else:
+                return "mobile"
+        except Exception as e:
+            self.logger.warning("Failed to auto-detect node type", error=str(e))
+            return None
 
     async def start(self):
         """Запуск узла"""
@@ -163,8 +224,53 @@ class BaseNode:
 
     async def _save_state(self):
         """Сохранение состояния узла"""
-        # TODO: Реализовать сохранение состояния
-        pass
+        try:
+            state_file = Path(self.config.node.state_file)
+            state_file.parent.mkdir(parents=True, exist_ok=True)
+
+            # Собираем состояние узла
+            state = {
+                "node_id": self.node_id.id.hex(),
+                "node_type": self.node_type,
+                "start_time": self.start_time,
+                "is_running": self.is_running,
+                # Сохраняем информацию о routing table (количество узлов в каждом бакете)
+                "routing_table_stats": {
+                    "total_nodes": sum(len(bucket.nodes) for bucket in self.routing_table.buckets),
+                    "buckets_with_nodes": sum(
+                        1 for bucket in self.routing_table.buckets if bucket.nodes
+                    ),
+                },
+            }
+
+            with open(state_file, "w") as f:
+                json.dump(state, f, indent=2)
+
+            self.logger.debug("Node state saved", file=str(state_file))
+        except Exception as e:
+            self.logger.error("Failed to save node state", error=str(e), exc_info=True)
+
+    def _load_state(self):
+        """Загрузка состояния узла"""
+        try:
+            state_file = Path(self.config.node.state_file)
+            if not state_file.exists():
+                return
+
+            with open(state_file, "r") as f:
+                state = json.load(f)
+
+            # Проверяем соответствие Node ID
+            saved_node_id = state.get("node_id")
+            if saved_node_id and saved_node_id != self.node_id.id.hex():
+                self.logger.warning(
+                    "Node ID mismatch", saved=saved_node_id[:16], current=self.node_id.id.hex()[:16]
+                )
+                return
+
+            self.logger.debug("Node state loaded", file=str(state_file))
+        except Exception as e:
+            self.logger.warning("Failed to load node state", error=str(e))
 
     async def bootstrap(self):
         """Bootstrap процесс для подключения к сети"""
@@ -196,8 +302,11 @@ class BaseNode:
                     self.routing_table.add_node(bootstrap_node)
                     connected = True
 
-                    # Запрашиваем список ближайших узлов
-                    # TODO: Реализовать FIND_NODE запрос
+                    # Запрашиваем список ближайших узлов к нашему Node ID
+                    closest_nodes = await self.dht_protocol.find_node(self.node_id)
+                    for node in closest_nodes:
+                        self.routing_table.add_node(node)
+                    self.logger.info("Bootstrap: found nodes", count=len(closest_nodes))
                 else:
                     self.logger.warning("Bootstrap node unreachable", host=host, port=port)
 
@@ -236,9 +345,67 @@ class BaseNode:
 
         for i, bucket in enumerate(self.routing_table.buckets):
             if bucket.nodes and (current_time - bucket.last_updated) > refresh_interval:
-                # Выбираем случайный ID в диапазоне этого бакета
-                # TODO: Реализовать правильный поиск случайного ключа
-                self.logger.debug("Refreshing bucket", bucket_index=i)
+                # Генерируем случайный Node ID в диапазоне этого бакета
+                random_node_id = self._generate_random_id_for_bucket(i)
+
+                # Выполняем FIND_NODE для обновления бакета
+                try:
+                    await self.dht_protocol.find_node(random_node_id)
+                    bucket.last_updated = current_time
+                    self.logger.debug("Bucket refreshed", bucket_index=i)
+                except Exception as e:
+                    self.logger.warning("Bucket refresh failed", bucket_index=i, error=str(e))
+
+    def _generate_random_id_for_bucket(self, bucket_index: int) -> NodeID:
+        """
+        Генерация случайного Node ID в диапазоне указанного бакета
+
+        В Kademlia бакет с индексом i содержит узлы на расстоянии [2^i, 2^(i+1)).
+        Для рефрешинга генерируем случайный ID, XOR-расстояние до которого попадает в этот диапазон.
+
+        Args:
+            bucket_index: Индекс бакета (0-159)
+
+        Returns:
+            Случайный Node ID в диапазоне бакета
+        """
+        # Генерируем случайное расстояние в диапазоне бакета
+        # Расстояние - это XOR между нашим ID и целевым ID
+
+        my_id = bytearray(self.node_id.id)
+        random_id = bytearray(20)  # 160 бит = 20 байт
+
+        if bucket_index == 0:
+            # Бакет 0: расстояние в [1, 2), т.е. первый бит должен быть 1, остальные 0
+            # Устанавливаем первый бит в 1, остальные случайные
+            random_id[0] = my_id[0] ^ (0x80 | random.randint(0, 0x7F))
+            for i in range(1, 20):
+                random_id[i] = my_id[i] ^ random.randint(0, 0xFF)
+        else:
+            # Для бакета i: первый ненулевой бит на позиции i
+            byte_idx = bucket_index // 8
+            bit_idx = bucket_index % 8
+
+            # Копируем начальные байты с нашего ID (они будут одинаковые)
+            for i in range(byte_idx):
+                random_id[i] = my_id[i]
+
+            if byte_idx < 20:
+                # В байте с первым различием устанавливаем бит на позиции bit_idx
+                # Этот бит должен быть разным (1 в XOR расстоянии)
+                mask_high = (0xFF << (8 - bit_idx)) & 0xFF  # Все биты до bit_idx включительно
+                mask_low = ~mask_high & 0xFF  # Остальные биты
+
+                # Берем наш байт, инвертируем бит на позиции bit_idx
+                our_byte = my_id[byte_idx]
+                flip_bit = 0x80 >> bit_idx
+                random_id[byte_idx] = our_byte ^ (flip_bit | random.randint(0, mask_low))
+
+                # Остальные байты - случайные
+                for i in range(byte_idx + 1, 20):
+                    random_id[i] = my_id[i] ^ random.randint(0, 0xFF)
+
+        return NodeID(id=bytes(random_id))
 
     async def _popularity_tasks(self):
         """Фоновые задачи для системы популярности"""
