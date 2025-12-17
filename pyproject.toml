@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "rhizome"
 version = "0.1.0"
 description = "Децентрализованная P2P сеть на Kademlia DHT с системой seed-узлов"
-readme = "ReadMe.md"
+readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
