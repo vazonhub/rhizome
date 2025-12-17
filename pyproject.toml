@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "rhizome"
+name = "rhizome-p2p"
 version = "0.0.1"
 description = "Децентрализованная P2P сеть на Kademlia DHT с системой seed-узлов"
 readme = "README.md"
