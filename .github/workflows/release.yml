@@ -9,9 +9,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., v0.1.0)'
+        description: 'Version to release'
         required: true
-        default: 'v0.1.0'
 
 jobs:
   build-and-publish:
@@ -24,7 +23,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Получаем всю историю для CHANGELOG
+        fetch-depth: 0
     
     - name: Determine version
       id: version
@@ -72,37 +71,12 @@ jobs:
       run: |
         twine check dist/*
     
-    - name: Generate release notes
-      id: release_notes
-      run: |
-        VERSION="${{ steps.version.outputs.version_number }}"
-        # Извлекаем заметки о релизе из CHANGELOG.md
-        if [ -f CHANGELOG.md ]; then
-          # Ищем секцию с нужной версией
-          START_LINE=$(grep -n "## \[$VERSION\]" CHANGELOG.md | head -1 | cut -d: -f1)
-          if [ -n "$START_LINE" ]; then
-            # Извлекаем до следующей версии или конца файла
-            END_LINE=$(tail -n +$((START_LINE + 1)) CHANGELOG.md | grep -n "^## \[" | head -1 | cut -d: -f1)
-            if [ -n "$END_LINE" ]; then
-              END_LINE=$((START_LINE + END_LINE - 1))
-            else
-              END_LINE=$(wc -l < CHANGELOG.md)
-            fi
-            sed -n "${START_LINE},${END_LINE}p" CHANGELOG.md > release_notes.md
-          else
-            echo "Release notes for version $VERSION not found in CHANGELOG.md" > release_notes.md
-          fi
-        else
-          echo "CHANGELOG.md not found" > release_notes.md
-        fi
-    
     - name: Create GitHub Release
       if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.version.outputs.version }}
-        name: Release ${{ steps.version.outputs.version }}
-        body_path: release_notes.md
+        name: ${{ steps.version.outputs.version }}
         draft: false
         prerelease: ${{ contains(steps.version.outputs.version, '-') || contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'rc') }}
         files: |
