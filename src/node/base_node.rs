@@ -102,7 +102,7 @@ impl BaseNode {
             config.dht.bucket_count as usize,
         )));
 
-        let storage = Arc::new(unsafe { Storage::new(config.storage.clone())? });
+        let storage = Arc::new(Storage::new(config.storage.clone())?);
 
         let transport = Arc::new(UDPTransport::new(
             &config.network.listen_host,
