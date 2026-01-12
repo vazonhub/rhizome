@@ -1,6 +1,6 @@
 [package]
 name = "rhizome-p2p"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 authors = ["Kostya Betenya <betenya.kostya@mail.ru>"]
 description = "Distributed P2P networking library for the Rhizome ecosystem"
