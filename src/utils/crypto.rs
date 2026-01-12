@@ -1,6 +1,6 @@
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::EncodePublicKey};
 use sha1::{Digest as Sha1Digest, Sha1};
-use sha2::{Sha256};
+use sha2::Sha256;
 use std::fs;
 use std::io;
 use std::path::Path;

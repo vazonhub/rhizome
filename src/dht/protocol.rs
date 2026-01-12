@@ -3,7 +3,7 @@ use futures::future::join_all;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug};
+use tracing::debug;
 
 use crate::dht::node::{Node, NodeID};
 use crate::dht::routing_table::RoutingTable;
@@ -109,7 +109,9 @@ impl DHTProtocol {
 
             for found_nodes in results.into_iter().flatten() {
                 for node in found_nodes {
-                    if let std::collections::hash_map::Entry::Vacant(e) = seen_nodes.entry(node.node_id) {
+                    if let std::collections::hash_map::Entry::Vacant(e) =
+                        seen_nodes.entry(node.node_id)
+                    {
                         e.insert(node.clone());
                         new_nodes_found = true;
                     }

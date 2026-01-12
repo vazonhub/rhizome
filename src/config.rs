@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 
 // Функции-помощники для значений по умолчанию (нужны для serde)
 fn d_k() -> i32 {

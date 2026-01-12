@@ -107,10 +107,11 @@ impl RhizomeClient {
     /// Остановка узла
     pub async fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(node) = self.node.take()
-            && self.is_running {
-                node.stop().await.expect("TODO: panic message");
-                self.is_running = false;
-            }
+            && self.is_running
+        {
+            node.stop().await.expect("TODO: panic message");
+            self.is_running = false;
+        }
 
         Ok(())
     }
@@ -322,17 +323,18 @@ impl RhizomeClient {
         for id in thread_ids {
             if let Some(meta) = self.find_thread(&id).await? {
                 if let Some(cat) = category
-                    && meta.category.as_deref() != Some(cat) {
-                        continue;
-                    }
+                    && meta.category.as_deref() != Some(cat)
+                {
+                    continue;
+                }
 
                 if let Some(ref t_filter) = tags
                     && !t_filter
                         .iter()
                         .any(|&tag| meta.tags.contains(&tag.to_string()))
-                    {
-                        continue;
-                    }
+                {
+                    continue;
+                }
 
                 results.push(meta);
             }

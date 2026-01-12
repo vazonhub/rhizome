@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::node::base_node::{BaseNode};
+use crate::node::base_node::BaseNode;
 use std::ops::Deref;
 
 /// Full-узел для основной рабочей нагрузки

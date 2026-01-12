@@ -148,12 +148,13 @@ impl PopularityExchanger {
         for item_data in items {
             if let Some(key_hex) = item_data["key"].as_str()
                 && let Ok(key) = hex::decode(key_hex)
-                    && let Some(metrics) = collector.metrics.get_mut(&key) {
-                        let rep = item_data["metrics"]["replication_count"]
-                            .as_u64()
-                            .unwrap_or(1) as u32;
-                        metrics.update_replication(rep);
-                    }
+                && let Some(metrics) = collector.metrics.get_mut(&key)
+            {
+                let rep = item_data["metrics"]["replication_count"]
+                    .as_u64()
+                    .unwrap_or(1) as u32;
+                metrics.update_replication(rep);
+            }
         }
     }
 

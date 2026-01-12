@@ -143,19 +143,20 @@ impl NetworkProtocol {
         match msg_type {
             MSG_PING => {
                 if let Some(rt_link) = &self.routing_table
-                    && let Some(id_val) = payload.get("node_id").and_then(|v| v.as_array()) {
-                        // Обновляем таблицу маршрутизации
-                        let mut id_bytes = [0u8; 20];
-                        for (i, v) in id_val.iter().enumerate().take(20) {
-                            id_bytes[i] = v.as_u64().unwrap_or(0) as u8;
-                        }
-                        let sender_node = Node::new(
-                            NodeID::new(id_bytes),
-                            address.ip().to_string(),
-                            address.port(),
-                        );
-                        rt_link.write().await.add_node(sender_node);
+                    && let Some(id_val) = payload.get("node_id").and_then(|v| v.as_array())
+                {
+                    // Обновляем таблицу маршрутизации
+                    let mut id_bytes = [0u8; 20];
+                    for (i, v) in id_val.iter().enumerate().take(20) {
+                        id_bytes[i] = v.as_u64().unwrap_or(0) as u8;
                     }
+                    let sender_node = Node::new(
+                        NodeID::new(id_bytes),
+                        address.ip().to_string(),
+                        address.port(),
+                    );
+                    rt_link.write().await.add_node(sender_node);
+                }
 
                 let response_payload = serde_json::json!({
                     "node_id": self.node_id.0,

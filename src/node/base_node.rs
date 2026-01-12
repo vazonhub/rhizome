@@ -3,7 +3,7 @@ use std::fmt;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::sync::{RwLock};
+use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
 use crate::config::Config;
@@ -66,9 +66,10 @@ impl BaseNode {
     pub async fn new(mut config: Config) -> Result<Self, Box<dyn std::error::Error>> {
         // 1. Определение типа узла
         if config.node.auto_detect_type
-            && let Some(detected) = Self::detect_node_type(&config) {
-                config.node.node_type = detected.to_string(); // Обновляем строку в конфиге
-            }
+            && let Some(detected) = Self::detect_node_type(&config)
+        {
+            config.node.node_type = detected.to_string(); // Обновляем строку в конфиге
+        }
 
         let node_type = match config.node.node_type.as_str() {
             "seed" => NodeType::Seed,
@@ -371,9 +372,10 @@ impl BaseNode {
         while *node.is_running.read().await {
             // Очистка старых данных в хранилище
             if let Ok(deleted) = node.storage.cleanup_expired().await
-                && deleted > 0 {
-                    debug!(count = deleted, "Cleaned up expired data");
-                }
+                && deleted > 0
+            {
+                debug!(count = deleted, "Cleaned up expired data");
+            }
 
             // Рефрешинг бакетов
             let refresh_interval = node.config.dht.refresh_interval as f64;
@@ -468,7 +470,12 @@ impl BaseNode {
             random_id[byte_idx] ^= flip_bit;
 
             // Заполняем остальные биты случайным образом
-            for (i, byte) in random_id.iter_mut().enumerate().skip(byte_idx).take(20 - byte_idx) {
+            for (i, byte) in random_id
+                .iter_mut()
+                .enumerate()
+                .skip(byte_idx)
+                .take(20 - byte_idx)
+            {
                 let mask = if i == byte_idx {
                     (1 << (7 - bit_idx)) - 1
                 } else {
