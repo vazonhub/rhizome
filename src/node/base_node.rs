@@ -22,10 +22,10 @@ use crate::utils::crypto::{generate_node_id, load_node_id, save_node_id};
 
 /// Enum of the nodes for computer resources
 ///
-/// - `Seed` - seed node saves data in storage from 100GB
-/// - `Full` - full node saves data in storage from 10GB
+/// - `Seed` - for work with popularity
+/// - `Full` - has all node conditions without any restrictions
 /// - `Light` - light node saves data in storage from 1GB
-/// - `Mobile` - client for mobiles without any local storage
+/// - `Mobile` - max storage is 100mb and max buckets count is 10
 ///
 /// `detect_node_type` automatically check empty volume on disk and
 ///  find role if in the config `auto_detect_type: true`
