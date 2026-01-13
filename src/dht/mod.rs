@@ -10,4 +10,9 @@ pub mod node;
 ///
 /// Describe `How`
 pub mod protocol;
+/// Implementation of table with close nodes
+///
+/// Describe `Where`
+///
+/// Use K-Buckets logic for create nodes map
 pub mod routing_table;
