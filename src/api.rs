@@ -1,12 +1,24 @@
-/// Module for work with network settings
+//! Rhizome P2P
+//!
+//! Rhizome is a high—performance, decentralized P2P messaging library implemented on Rust.
+//! It is based on the Kademlia DHT protocol with custom data replication and
+//! content ranking mechanisms.
+//!
+//! ## Features
+//! - 🦀 Rust Core: Maximum performance and memory security without GC.
+//! - 🔒 Anonymity: DHT-based routing hides direct connections between network participants.
+//! - ⚡ Async First: A fully asynchronous stack based on tokio and futures.
+//! - 🔄 Smart replication: Automatic distribution of data to k-nearest nodes.
+//! - 📈 Popularity system: Content in demand gets storage priority and a higher TTL.
+//! - 📦 Modularity: You can use it as a ready-made CLI node, or connect it as a library (cargo lib) to your project.
+
 pub mod config;
-/// Module for work with exceptions
 pub mod exceptions;
-/// Module for work with logs
 pub mod logger;
 
 /// Kademlia DHT realization
 pub mod dht;
+/// Realization of network working on more low transport level
 pub mod network;
 pub mod node;
 pub mod popularity;
