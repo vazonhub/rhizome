@@ -88,6 +88,12 @@ pub struct KeyManager {
     // если методы статические, но для сохранения структуры Python-кода:
 }
 
+impl Default for KeyManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl KeyManager {
     pub fn new() -> Self {
         Self {}

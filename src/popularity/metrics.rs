@@ -144,6 +144,12 @@ pub struct MetricsCollector {
     pub metrics: HashMap<Vec<u8>, PopularityMetrics>,
 }
 
+impl Default for MetricsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetricsCollector {
     pub fn new() -> Self {
         Self {
