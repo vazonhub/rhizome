@@ -20,6 +20,15 @@ use crate::replication::replicator::Replicator;
 use crate::storage::main::Storage;
 use crate::utils::crypto::{generate_node_id, load_node_id, save_node_id};
 
+/// Enum of the nodes for computer resources
+///
+/// - `Seed` - seed node saves data in storage from 100GB
+/// - `Full` - full node saves data in storage from 10GB
+/// - `Light` - light node saves data in storage from 1GB
+/// - `Mobile` - client for mobiles without any local storage
+///
+/// `detect_node_type` automatically check empty volume on disk and
+///  find role if in the config `auto_detect_type: true`
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum NodeType {
     Seed,
@@ -40,31 +49,47 @@ impl fmt::Display for NodeType {
     }
 }
 
+/// Type for Facade base node
 pub struct BaseNode {
+    /// Ref to the client config
     pub config: Config,
+    /// Uniq 160-bits ID of the node
     pub node_id: NodeID,
+    /// Type of the node
     pub node_type: NodeType,
-
-    // Компоненты, обернутые в Arc для совместного использования задачами
+    /// Routing table with the closest nodes
     pub routing_table: Arc<RwLock<RoutingTable>>,
+    /// Local storage of the user
     pub storage: Arc<Storage>,
+    /// For work with UDP socket
     pub transport: Arc<UDPTransport>,
+    /// Collect all metrics
     pub metrics_collector: Arc<RwLock<MetricsCollector>>,
+    /// Ranker of data popularity
     pub popularity_ranker: Arc<PopularityRanker>,
+    /// The protocol of network lvl
     pub network_protocol: Arc<NetworkProtocol>,
+    /// Protocol of DHT network
     pub dht_protocol: Arc<DHTProtocol>,
+    /// Exchanger of some data popularity
     pub popularity_exchanger: Arc<PopularityExchanger>,
+    /// Also exchange popularity
     pub replicator: Arc<Replicator>,
-
-    // Состояние
+    /// Value of node status
     pub is_running: Arc<RwLock<bool>>,
+    /// Time of node start
     pub start_time: Arc<RwLock<Option<f64>>>,
 }
 
 #[allow(dead_code)]
 impl BaseNode {
+    /// Node initialization
+    ///
+    /// First of all this method understood the node type. By the config, or automatically by check
+    ///  the resources of user device.
+    /// Secondly they will generate uniq 160-bits identifier if we don't create it yet.
+    /// Finally, we will create all node components for work in strong ordinary.
     pub async fn new(mut config: Config) -> Result<Self, Box<dyn std::error::Error>> {
-        // 1. Определение типа узла
         if config.node.auto_detect_type
             && let Some(detected) = Self::detect_node_type(&config)
         {
@@ -78,7 +103,6 @@ impl BaseNode {
             _ => NodeType::Mobile,
         };
 
-        // 2. Загрузка или генерация Node ID
         let node_id_path = PathBuf::from(&config.node.node_id_file);
         let node_id_bytes = match load_node_id(&node_id_path) {
             Some(bytes) => {
@@ -96,7 +120,6 @@ impl BaseNode {
         id_fixed.copy_from_slice(&node_id_bytes[..20]);
         let node_id = NodeID::new(id_fixed);
 
-        // 3. Инициализация базовых компонентов
         let routing_table = Arc::new(RwLock::new(RoutingTable::new(
             node_id,
             config.dht.k as usize,
@@ -117,7 +140,6 @@ impl BaseNode {
             config.popularity.active_threshold,
         ));
 
-        // 4. Сетевой и DHT протоколы
         let listen_addr: std::net::SocketAddr = format!(
             "{}:{}",
             config.network.listen_host, config.network.listen_port
@@ -138,7 +160,6 @@ impl BaseNode {
             Some(network_protocol.clone()),
         ));
 
-        // 5. Популярность и Репликация
         let popularity_exchanger = Arc::new(PopularityExchanger::new(
             network_protocol.clone(),
             popularity_ranker.clone(),
@@ -190,7 +211,7 @@ impl BaseNode {
         Some(NodeType::Mobile)
     }
 
-    /// Запуск узла
+    /// Start socket and listen all tasks
     pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
         let mut running = self.is_running.write().await;
         if *running {
@@ -202,20 +223,16 @@ impl BaseNode {
         *running = true;
         *self.start_time.write().await = Some(Self::get_now());
 
-        // 1. Запуск сетевого уровня
         let net = self.network_protocol.clone();
         net.start().await?;
 
-        // 2. Bootstrap (подключение к сети)
         self.bootstrap().await;
 
-        // 3. Запуск фоновых задач (рефрешинг и очистка)
         let node_ref = Arc::new(self.clone_ptrs());
         tokio::spawn(async move {
             Self::background_loop(node_ref).await;
         });
 
-        // 4. Запуск задач популярности
         let node_ref_pop = Arc::new(self.clone_ptrs());
         tokio::spawn(async move {
             Self::popularity_loop(node_ref_pop).await;
@@ -224,6 +241,7 @@ impl BaseNode {
         Ok(())
     }
 
+    /// Stop the socket and leave all resources
     pub async fn stop(&self) -> Result<(), Box<dyn std::error::Error>> {
         let mut running = self.is_running.write().await;
         if !*running {
@@ -231,28 +249,24 @@ impl BaseNode {
         }
 
         info!("Stopping node");
-        *running = false; // Это заставит циклы background_loop и popularity_loop завершиться
+        *running = false;
 
         // Остановка сетевого протокола
-        // self.network_protocol.stop().await;
+        self.network_protocol.clone().stop().await;
 
         // Сохранение состояния в файл
         if let Err(e) = self.save_state().await {
             error!(error = %e, "Failed to save node state during stop");
         }
 
-        // В Rust хранилище (Heed/LMDB) закроется автоматически, когда Arc<Storage>
-        // выйдет из области видимости (Drop), но если нужно явно — можно добавить метод в Storage.
-
         info!("Node stopped");
         Ok(())
     }
 
-    /// Сохранение состояния (Аналог _save_state в Python)
+    /// Save node state in JSON format
     async fn save_state(&self) -> Result<(), Box<dyn std::error::Error>> {
         let state_file = PathBuf::from(&self.config.node.state_file);
 
-        // Создаем директории если их нет
         if let Some(parent) = state_file.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -261,7 +275,6 @@ impl BaseNode {
         let total_nodes: usize = rt.buckets.iter().map(|b| b.nodes.len()).sum();
         let buckets_with_nodes = rt.buckets.iter().filter(|b| !b.nodes.is_empty()).count();
 
-        // Формируем JSON структуру
         let state = serde_json::json!({
             "node_id": hex::encode(self.node_id.0),
             "node_type": self.node_type.to_string(),
@@ -273,7 +286,6 @@ impl BaseNode {
             },
         });
 
-        // Записываем в файл
         let file = std::fs::File::create(state_file)?;
         serde_json::to_writer_pretty(file, &state)?;
 
@@ -281,7 +293,7 @@ impl BaseNode {
         Ok(())
     }
 
-    /// Загрузка состояния (Аналог _load_state в Python)
+    /// Load node state from JSON
     pub async fn load_state(&self) -> Result<(), Box<dyn std::error::Error>> {
         let state_file = PathBuf::from(&self.config.node.state_file);
         if !state_file.exists() {
@@ -306,7 +318,7 @@ impl BaseNode {
         Ok(())
     }
 
-    /// Процесс подключения к начальным узлам
+    /// Connecting to the start nodes
     async fn bootstrap(&self) {
         let bootstrap_nodes = &self.config.network.bootstrap_nodes;
         if bootstrap_nodes.is_empty() {
@@ -316,7 +328,6 @@ impl BaseNode {
 
         for addr_str in bootstrap_nodes {
             if let Ok(addr) = addr_str.parse::<std::net::SocketAddr>() {
-                // Временный узел (ID узнаем после PING)
                 let boot_node =
                     Node::new(NodeID::new([0u8; 20]), addr.ip().to_string(), addr.port());
 
@@ -324,14 +335,13 @@ impl BaseNode {
                     info!(address = %addr_str, "Bootstrap node connected");
                     self.routing_table.write().await.add_node(boot_node);
 
-                    // Итеративный поиск себя для заполнения таблицы
                     let _ = self.dht_protocol.find_node(&self.node_id).await;
                 }
             }
         }
     }
 
-    /// Обмен данными о популярности с соседними узлами (Аналог _exchange_popularity)
+    /// Exchange data between nodes
     pub async fn exchange_popularity(&self) -> Result<(), RhizomeError> {
         let all_metrics = self
             .metrics_collector
@@ -343,7 +353,6 @@ impl BaseNode {
             return Ok(());
         }
 
-        // Получаем соседние узлы из routing table (первые 10)
         let neighbor_nodes = {
             let rt = self.routing_table.read().await;
             let mut nodes = rt.get_all_nodes();
@@ -355,7 +364,6 @@ impl BaseNode {
             return Ok(());
         }
 
-        // Обмениваемся данными
         self.popularity_exchanger
             .exchange_top_items(all_metrics, neighbor_nodes.clone(), 100)
             .await;
@@ -367,7 +375,7 @@ impl BaseNode {
         Ok(())
     }
 
-    /// Основной цикл фоновых задач (рефрешинг бакетов)
+    /// Main loop which work on background side and cleanup storage by TTL
     async fn background_loop(node: Arc<BaseNodePtrs>) {
         while *node.is_running.read().await {
             // Очистка старых данных в хранилище
@@ -377,7 +385,6 @@ impl BaseNode {
                 debug!(count = deleted, "Cleaned up expired data");
             }
 
-            // Рефрешинг бакетов
             let refresh_interval = node.config.dht.refresh_interval as f64;
             let mut buckets_to_refresh = Vec::new();
 
@@ -401,7 +408,7 @@ impl BaseNode {
         }
     }
 
-    /// Цикл задач популярности (Ранжирование, Репликация, Обмен)
+    /// Main fron loop which work with metrics
     async fn popularity_loop(node: Arc<BaseNodePtrs>) {
         let mut last_update = 0.0;
         let mut last_exchange = 0.0;
@@ -409,7 +416,6 @@ impl BaseNode {
         while *node.is_running.read().await {
             let now = Self::get_now();
 
-            // 1. Обновление рейтингов и Репликация (каждый час)
             if now - last_update >= node.config.popularity.update_interval as f64 {
                 let metrics = node
                     .metrics_collector
@@ -419,14 +425,12 @@ impl BaseNode {
                     .clone();
                 let ranked = node.popularity_ranker.rank_items(&metrics, Some(100));
 
-                // Продление TTL популярных данных
                 for item in &ranked {
                     if item.score >= node.config.popularity.popularity_threshold {
                         let _ = node.storage.extend_ttl(item.key.clone(), 1.0).await;
                     }
                 }
 
-                // Репликация
                 node.replicator
                     .replicate_popular_items(ranked, node.config.popularity.popularity_threshold)
                     .await;
@@ -434,7 +438,6 @@ impl BaseNode {
                 last_update = now;
             }
 
-            // 2. Обмен данными (каждые 6 часов)
             if now - last_exchange >= node.config.popularity.exchange_interval as f64 {
                 let metrics = node
                     .metrics_collector
@@ -450,14 +453,13 @@ impl BaseNode {
                 last_exchange = now;
             }
 
-            // 3. Обновление свежести
             node.metrics_collector.write().await.update_all_freshness();
 
             tokio::time::sleep(Duration::from_secs(60)).await;
         }
     }
 
-    /// Генерация случайного ID для Kademlia бакета
+    /// Generate uniq id for Kademlia Bucket
     fn generate_random_id_for_bucket(&self, bucket_index: usize) -> NodeID {
         let mut rng = rand::thread_rng();
         let mut random_id = self.node_id.0;
@@ -469,7 +471,6 @@ impl BaseNode {
             let flip_bit = 0x80 >> bit_idx;
             random_id[byte_idx] ^= flip_bit;
 
-            // Заполняем остальные биты случайным образом
             for (i, byte) in random_id
                 .iter_mut()
                 .enumerate()
@@ -512,7 +513,7 @@ impl BaseNode {
             .as_secs_f64()
     }
 
-    /// Вспомогательный метод для клонирования указателей для потоков
+    /// Method for copy packet references
     pub(crate) fn clone_ptrs(&self) -> BaseNodePtrs {
         BaseNodePtrs {
             config: self.config.clone(),
@@ -528,7 +529,7 @@ impl BaseNode {
     }
 }
 
-/// Структура только с Arc-указателями для передачи в фоновые задачи
+/// Structure with Arc-refs for transfer in back tasks
 pub(crate) struct BaseNodePtrs {
     pub(crate) config: Config,
     pub(crate) routing_table: Arc<RwLock<RoutingTable>>,
@@ -543,7 +544,6 @@ pub(crate) struct BaseNodePtrs {
 
 impl BaseNodePtrs {
     fn generate_random_id_for_bucket(&self, _bucket_index: usize) -> NodeID {
-        // (Логика идентична методу выше)
-        NodeID::new([0u8; 20]) // Заглушка
+        NodeID::new([0u8; 20])
     }
 }
