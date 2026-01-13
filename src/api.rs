@@ -12,6 +12,7 @@
 //! - 📈 Popularity system: Content in demand gets storage priority and a higher TTL.
 //! - 📦 Modularity: You can use it as a ready-made CLI node, or connect it as a library (cargo lib) to your project.
 
+/// Configuration Module
 pub mod config;
 /// Rhizome Exceptions Module
 pub mod exceptions;
