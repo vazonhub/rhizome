@@ -1,5 +1,5 @@
 /// Basic description of node in Kademlia DHT
-/// 
+///
 /// Contain two modules:
 /// - `NodeId` - uniq identifier in Kademlia DHT network
 /// - `Node` - implementation of Kademlia DHT node with state, last seen and TTL

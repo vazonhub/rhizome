@@ -6,8 +6,7 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 pub fn setup_logging(log_level: &str, log_file: Option<PathBuf>, node_id: Option<&str>) {
     // Configure log level filter
     // Uses RUST_LOG environment variable if set, otherwise uses the provided level
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(log_level));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level));
 
     // Configure timestamp format using ISO 8601 (RFC 3339)
     // Format: 2024-01-12T15:30:45.123456789+03:00
@@ -17,14 +16,13 @@ pub fn setup_logging(log_level: &str, log_file: Option<PathBuf>, node_id: Option
     if let Some(path) = log_file {
         // Create file for logging
         // Panics with error message if file cannot be created
-        let file = File::create(path)
-            .expect("Failed to create log file");
+        let file = File::create(path).expect("Failed to create log file");
 
         // Create layer for JSON file output
         let layer = fmt::layer()
-            .with_timer(timer)      // Add timestamps
-            .json()                 // Use JSON format
-            .with_writer(file);     // Write to file
+            .with_timer(timer) // Add timestamps
+            .json() // Use JSON format
+            .with_writer(file); // Write to file
 
         // Initialize subscriber with filter and file layer
         tracing_subscriber::registry()
@@ -34,7 +32,7 @@ pub fn setup_logging(log_level: &str, log_file: Option<PathBuf>, node_id: Option
     } else {
         // Create layer for console text output
         let layer = fmt::layer()
-            .with_timer(timer)           // Add timestamps
+            .with_timer(timer) // Add timestamps
             .with_writer(std::io::stdout); // Output to stdout
 
         // Initialize subscriber with filter and console layer
@@ -64,7 +62,7 @@ pub fn get_logger(name: &'static str) {
     // Log informational message about module logger initialization
     // Uses structured logging with module field
     tracing::info!(
-        module = name,                    // Field for module name
-        "Module logger initialized"       // Message
+        module = name,               // Field for module name
+        "Module logger initialized"  // Message
     );
 }
