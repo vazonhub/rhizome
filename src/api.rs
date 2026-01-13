@@ -13,7 +13,9 @@
 //! - 📦 Modularity: You can use it as a ready-made CLI node, or connect it as a library (cargo lib) to your project.
 
 pub mod config;
+/// Rhizome Exceptions Module
 pub mod exceptions;
+/// Module for logging and registration of events
 pub mod logger;
 
 /// Kademlia DHT realization
