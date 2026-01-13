@@ -12,15 +12,13 @@
 //! - 📈 Popularity system: Content in demand gets storage priority and a higher TTL.
 //! - 📦 Modularity: You can use it as a ready-made CLI node, or connect it as a library (cargo lib) to your project.
 
-/// Module for work with network settings
 pub mod config;
-/// Module for work with exceptions
 pub mod exceptions;
-/// Module for work with logs
 pub mod logger;
 
 /// Kademlia DHT realization
 pub mod dht;
+/// Realization of network working on more low transport level
 pub mod network;
 pub mod node;
 pub mod popularity;

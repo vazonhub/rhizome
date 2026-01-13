@@ -8,4 +8,5 @@ pub mod consts;
 /// They will transfer abstract command like (Ping, Store) in real bytes and send it by UDP.
 /// Protocol work with answers and responsibility for safety.
 pub mod protocol;
+/// Module with realization of UDP
 pub mod transport;

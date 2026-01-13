@@ -8,20 +8,35 @@ use tracing::{error, info};
 
 use crate::exceptions::{NetworkError, RhizomeError};
 
-/// Сетевое сообщение (аналог dataclass Message)
+/// Raw Message
+///
+/// Data without serialization yet
 #[derive(Debug, Clone)]
 pub struct Message {
+    /// Transferred data
     pub data: Vec<u8>,
+    /// IP + port of node
     pub address: SocketAddr,
+    /// Time of getting message
     pub timestamp: f64,
 }
 
+/// Main UDP structure
 pub struct UDPTransport {
-    host: String,
-    port: u16,
-    socket: Arc<Mutex<Option<Arc<UdpSocket>>>>, // Use Mutex for interior mutability
-    stop_tx: Mutex<Option<oneshot::Sender<()>>>,
-    is_running: AtomicBool,
+    /// IP for connection _(0.0.0.0)_
+    pub host: String,
+    /// Connection port _(8080)_
+    pub port: u16,
+    /// Active socket store
+    ///
+    /// - `Arc` - for multiconnection from node and listen thread
+    /// - `Mutex` - for safety manipulate with thread
+    /// - `Option` - because before call `.start()` socket doesn't exist
+    pub socket: Arc<Mutex<Option<Arc<UdpSocket>>>>,
+    /// Change for sending stop signal
+    pub stop_tx: Mutex<Option<oneshot::Sender<()>>>,
+    /// Thread safety status value
+    pub is_running: AtomicBool,
 }
 
 impl UDPTransport {
@@ -29,16 +44,16 @@ impl UDPTransport {
         Self {
             host: host.to_string(),
             port,
-            socket: Arc::new(Mutex::new(None)), // Initialize as None
+            socket: Arc::new(Mutex::new(None)),
             stop_tx: Mutex::new(None),
             is_running: AtomicBool::new(false),
         }
     }
 
-    /// Запуск UDP транспорта (аналог start)
+    /// Start UDP transport
     pub async fn start<F>(&self, handler: F) -> Result<(), RhizomeError>
     where
-        F: Fn(Message) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+        F: Fn(Message) -> std::pin::Pin<Box<dyn Future<Output = ()> + Send>>
             + Send
             + Sync
             + 'static,
@@ -47,7 +62,6 @@ impl UDPTransport {
             return Ok(());
         }
 
-        // Bind socket
         let addr = format!("{}:{}", self.host, self.port);
         let socket = UdpSocket::bind(&addr).await.map_err(|e| {
             error!("Failed to bind socket: {}", e);
@@ -56,13 +70,11 @@ impl UDPTransport {
 
         let socket_arc = Arc::new(socket);
 
-        // Store socket in Mutex-protected field
         {
             let mut socket_lock = self.socket.lock().await;
             *socket_lock = Some(socket_arc.clone());
         }
 
-        // Setup stop channel
         let (stop_tx, mut stop_rx) = oneshot::channel::<()>();
         {
             let mut stop_tx_lock = self.stop_tx.lock().await;
@@ -71,17 +83,14 @@ impl UDPTransport {
 
         let handler = Arc::new(handler);
 
-        // Start listening task
         tokio::spawn(async move {
             let mut buf = vec![0u8; 65535];
 
             loop {
                 tokio::select! {
-                    // Проверка сигнала остановки
                     _ = &mut stop_rx => {
                         break;
                     }
-                    // Получение данных
                     result = socket_arc.recv_from(&mut buf) => {
                         match result {
                             Ok((size, addr)) => {
@@ -94,7 +103,6 @@ impl UDPTransport {
                                 let msg = Message { data, address: addr, timestamp };
                                 let h = handler.clone();
 
-                                // Запускаем обработчик в отдельной задаче (аналог loop.create_task)
                                 tokio::spawn(async move {
                                     h(msg).await;
                                 });
@@ -113,13 +121,12 @@ impl UDPTransport {
         Ok(())
     }
 
-    /// Остановка UDP транспорта
+    /// Stop the UDP transport
     pub async fn stop(&self) {
         if !self.is_running.load(Ordering::SeqCst) {
             return;
         }
 
-        // Send stop signal
         {
             let mut stop_tx_lock = self.stop_tx.lock().await;
             if let Some(tx) = stop_tx_lock.take() {
@@ -127,7 +134,6 @@ impl UDPTransport {
             }
         }
 
-        // Clear socket
         {
             let mut socket_lock = self.socket.lock().await;
             *socket_lock = None;
@@ -137,7 +143,7 @@ impl UDPTransport {
         info!("UDP transport stopped");
     }
 
-    /// Отправка сообщения
+    /// Send message
     pub async fn send(&self, data: &[u8], address: SocketAddr) -> Result<bool, RhizomeError> {
         if !self.is_running.load(Ordering::SeqCst) {
             return Err(RhizomeError::Network(NetworkError::General));
@@ -158,7 +164,7 @@ impl UDPTransport {
         }
     }
 
-    /// Получение адреса транспорта
+    /// Get transport address
     pub async fn get_address(&self) -> SocketAddr {
         let socket_lock = self.socket.lock().await;
         if let Some(socket) = socket_lock.as_ref() {
