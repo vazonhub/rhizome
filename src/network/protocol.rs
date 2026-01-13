@@ -10,51 +10,53 @@ use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
 
 use crate::dht::node::{Node, NodeID};
-use crate::dht::protocol::NetworkProtocolTrait; // Трейт из предыдущего шага
+use crate::dht::protocol::NetworkProtocolTrait;
 use crate::dht::routing_table::RoutingTable;
 use crate::exceptions::{NetworkError, RhizomeError};
+use crate::network::consts::*;
 use crate::network::transport::{Message, UDPTransport};
 use crate::popularity::exchanger::PopularityExchanger;
 use crate::security::rate_limiter::RateLimiter;
 use crate::storage::main::Storage;
 
-// Константы типов сообщений
-pub const MSG_PING: u8 = 0x01;
-pub const MSG_PONG: u8 = 0x02;
-pub const MSG_FIND_NODE: u8 = 0x03;
-pub const MSG_FIND_NODE_RESPONSE: u8 = 0x04;
-pub const MSG_FIND_VALUE: u8 = 0x05;
-pub const MSG_FIND_VALUE_RESPONSE: u8 = 0x06;
-pub const MSG_STORE: u8 = 0x07;
-pub const MSG_STORE_RESPONSE: u8 = 0x08;
-pub const MSG_POPULARITY_EXCHANGE: u8 = 0x09;
-pub const MSG_POPULARITY_EXCHANGE_RESPONSE: u8 = 0x0A;
-pub const MSG_GLOBAL_RANKING_REQUEST: u8 = 0x0B;
-pub const MSG_GLOBAL_RANKING_RESPONSE: u8 = 0x0C;
-
-/// Структура сообщения в MessagePack (аналог словаря в Python)
+/// Message structure
 #[derive(Serialize, Deserialize, Debug)]
-struct ProtocolMessage {
+pub struct ProtocolMessage {
     #[serde(rename = "type")]
-    msg_type: u8,
+    /// Type of message _(PING, STORE)_
+    pub msg_type: u8,
+    /// Uniq id for transfer _(nonce)_
     pub id: [u8; 16],
+    /// Source ID
     pub node_id: [u8; 20],
+    /// Transferred data in JSON binary format
     pub payload: serde_json::Value,
+    /// Time of sending
     pub timestamp: f64,
 }
 
 type ResponseSender = oneshot::Sender<(u8, serde_json::Value)>;
 
+/// Network protocol for sending data by UDP
 pub struct NetworkProtocol {
-    transport: Arc<UDPTransport>,
-    node_id: NodeID,
-    local_address: SocketAddr,
-    routing_table: Option<Arc<RwLock<RoutingTable>>>,
-    storage: Option<Arc<Storage>>,
+    /// Transport for data sending
+    pub transport: Arc<UDPTransport>,
+    /// Id of sender node
+    pub node_id: NodeID,
+    /// Address of node _(127.0.0.1)_
+    pub local_address: SocketAddr,
+    /// Table with the closest nodes
+    pub routing_table: Option<Arc<RwLock<RoutingTable>>>,
+    /// Local node storage
+    pub storage: Option<Arc<Storage>>,
+    /// Exchanger of the popularity
     pub popularity_exchanger: Arc<RwLock<Option<Arc<PopularityExchanger>>>>,
-    rate_limiter: Arc<Mutex<RateLimiter>>,
-    pending_requests: Arc<Mutex<HashMap<[u8; 16], ResponseSender>>>,
-    request_timeout: Duration,
+    /// Protection of DDOS and spam
+    pub rate_limiter: Arc<Mutex<RateLimiter>>,
+    /// List of items which we are wait
+    pub pending_requests: Arc<Mutex<HashMap<[u8; 16], ResponseSender>>>,
+    /// How much time we need to wait the answer
+    pub request_timeout: Duration,
 }
 
 impl NetworkProtocol {
@@ -78,6 +80,7 @@ impl NetworkProtocol {
         }
     }
 
+    /// Start the UDP port
     pub async fn start(self: Arc<Self>) -> Result<(), RhizomeError> {
         let proto = self.clone();
         let transport = self.transport.clone();
@@ -96,18 +99,19 @@ impl NetworkProtocol {
         Ok(())
     }
 
-    /// Остановка протокола (Аналог stop в Python)
+    /// Stop the UDP port
     pub async fn stop(&mut self) {
         self.transport.stop().await;
         info!("Network protocol stopped");
     }
 
-    async fn handle_incoming_message(&self, message: Message) {
-        // 1. Десериализация для Rate Limit
+    /// Validation of incoming messages
+    ///
+    /// Deserialize data and check rate limit
+    pub async fn handle_incoming_message(&self, message: Message) {
         let raw_msg: Result<ProtocolMessage, _> = rmp_serde::from_slice(&message.data);
 
         if let Ok(m) = raw_msg {
-            // Проверка Rate Limit
             let mut limiter = self.rate_limiter.lock().await;
             if limiter.check_rate_limit(Some(&m.node_id)).is_err() {
                 warn!(address = %message.address, "Rate limit exceeded");
@@ -115,7 +119,6 @@ impl NetworkProtocol {
             }
             drop(limiter);
 
-            // 2. Проверка, является ли это ответом на наш запрос
             let mut pending = self.pending_requests.lock().await;
             if let Some(sender) = pending.remove(&m.id) {
                 let _ = sender.send((m.msg_type, m.payload));
@@ -123,7 +126,6 @@ impl NetworkProtocol {
             }
             drop(pending);
 
-            // 3. Обработка входящего запроса
             if let Err(e) = self
                 .handle_request(m.msg_type, m.id, m.payload, message.address)
                 .await
@@ -133,7 +135,15 @@ impl NetworkProtocol {
         }
     }
 
-    async fn handle_request(
+    /// Work with incoming messages
+    ///
+    /// - `MSG_PING`: Write node in our table and send PONG response
+    /// - `MSG_FIND_NODE`: Find neighbors in our routing table and send in response
+    /// - `MSG_FIND_VALUE`: Check local storage: if we have data we will return them or send
+    ///   our neighbors which maybe know data
+    /// - `MSG_STORE`: Chose data from message and save it in our store
+    /// - `MSG_POPULARITY_EXCHANGE`: Exchange information about content popularity
+    pub async fn handle_request(
         &self,
         msg_type: u8,
         msg_id: [u8; 16],
@@ -310,7 +320,8 @@ impl NetworkProtocol {
         Ok(())
     }
 
-    async fn send_response(
+    /// Send response to the node
+    pub async fn send_response(
         &self,
         msg_type: u8,
         msg_id: [u8; 16],
@@ -322,7 +333,8 @@ impl NetworkProtocol {
         Ok(())
     }
 
-    fn pack_message(
+    /// Serialize message
+    pub fn pack_message(
         &self,
         msg_type: u8,
         msg_id: [u8; 16],
@@ -341,7 +353,8 @@ impl NetworkProtocol {
         rmp_serde::to_vec(&msg).map_err(|_| RhizomeError::Network(NetworkError::General))
     }
 
-    fn generate_msg_id(&self) -> [u8; 16] {
+    /// Generate uniq message id
+    pub fn generate_msg_id(&self) -> [u8; 16] {
         rand::thread_rng().r#gen()
     }
 }

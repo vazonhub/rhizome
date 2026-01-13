@@ -1,43 +1,34 @@
-mod config;
-mod exceptions;
-mod logger;
+//! Rhizome P2P
+//!
+//! Rhizome is a high—performance, decentralized P2P messaging library implemented on Rust.
+//! It is based on the Kademlia DHT protocol with custom data replication and
+//! content ranking mechanisms.
+//!
+//! ## Features
+//! - 🦀 Rust Core: Maximum performance and memory security without GC.
+//! - 🔒 Anonymity: DHT-based routing hides direct connections between network participants.
+//! - ⚡ Async First: A fully asynchronous stack based on tokio and futures.
+//! - 🔄 Smart replication: Automatic distribution of data to k-nearest nodes.
+//! - 📈 Popularity system: Content in demand gets storage priority and a higher TTL.
+//! - 📦 Modularity: You can use it as a ready-made CLI node, or connect it as a library (cargo lib) to your project.
 
-mod utils {
-    pub mod crypto;
-    pub mod serialization;
-}
-mod dht {
-    pub mod node;
-    pub mod protocol;
-    pub mod routing_table;
-}
-mod storage {
-    pub mod data_types;
-    pub mod keys;
-    pub mod main;
-}
-mod security {
-    pub mod rate_limiter;
-}
-mod replication {
-    pub mod replicator;
-}
-mod popularity {
-    pub mod exchanger;
-    pub mod metrics;
-    pub mod ranking;
-}
-mod node {
-    pub mod base_node;
-    pub mod full_node;
-    pub mod light_node;
-    pub mod mobile_node;
-    pub mod seed_node;
-}
-mod network {
-    pub mod protocol;
-    pub mod transport;
-}
+/// Configuration Module
+pub mod config;
+/// Rhizome Exceptions Module
+pub mod exceptions;
+/// Module for logging and registration of events
+pub mod logger;
+
+/// Kademlia DHT realization
+pub mod dht;
+/// Realization of network working on more low transport level
+pub mod network;
+pub mod node;
+pub mod popularity;
+pub mod replication;
+pub mod security;
+pub mod storage;
+pub mod utils;
 
 use serde_json::Value;
 use std::path::PathBuf;
@@ -53,7 +44,6 @@ use crate::storage::keys::KeyManager;
 use crate::utils::crypto::hash_key;
 use crate::utils::serialization::{deserialize, serialize};
 
-/// Высокоуровневый клиент для работы с Rhizome P2P сетью
 pub struct RhizomeClient {
     pub config: Config,
     pub node: Option<Arc<FullNode>>,

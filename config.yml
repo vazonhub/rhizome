@@ -1,0 +1,63 @@
+# ==============================================================================
+# Rhizome Node Configuration
+# Standard template for Full, Seed, and Light nodes.
+# ==============================================================================
+
+# --- DISTRIBUTED HASH TABLE (KADEMLIA) ---
+dht:
+  k: 20                             # Max contacts per bucket
+  alpha: 3                          # Lookup parallelism degree
+  refresh_interval: 3600            # Seconds to refresh routing table (1h)
+  # node_id_bits: 160               # Identifier size in bits
+  # bucket_count: 160               # Total number of buckets
+  # ping_timeout: 5.0               # Seconds to wait for PING response
+  # request_timeout: 10.0           # Seconds to wait for DHT queries
+
+# --- STORAGE MANAGEMENT ---
+storage:
+  data_dir: "data"                  # Path to persistent storage
+  max_storage_size: 10737418240     # Storage quota in bytes (10 GB)
+  default_ttl: 86400                # Time-To-Live for data (1 day)
+  popular_ttl: 2592000              # TTL for high-demand data (30 days)
+  # active_ttl: 604800              # TTL for frequently accessed data (7 days)
+  # private_ttl: 10800              # TTL for sensitive/private data (3 hours)
+  # min_guaranteed_ttl: 3600        # Absolute minimum storage time (1 hour)
+
+# --- NETWORK TRANSPORT ---
+network:
+  listen_host: "0.0.0.0"            # Interface to bind (0.0.0.0 for all)
+  listen_port: 8468                 # Default UDP port
+  bootstrap_nodes:                  # Initial nodes to join the network
+  # - "seed1.rhizome.io:8468"
+  # - "seed2.rhizome.io:8468"
+  max_connections: 100              # Concurrent peer limit
+  # connection_timeout: 30.0        # Handshake timeout in seconds
+
+# --- NODE IDENTITY & STATE ---
+node:
+  node_type: "full"                 # Role: seed, full, light, mobile
+  auto_detect_type: true            # Adjust type based on system resources
+  node_id_file: "node_id.pem"       # Path to node's private key
+  state_file: "node_state.json"     # Persistence for routing table/stats
+
+# --- CONTENT POPULARITY (METRICS) ---
+popularity:
+  update_interval: 3600             # Local metrics refresh (1h)
+  exchange_interval: 21600          # Data exchange with neighbors (6h)
+  # global_update_interval: 10800   # Global ranking recalculation (3h)
+  # popularity_threshold: 7.0       # Score to consider data "popular"
+  # active_threshold: 5.0           # Score to consider data "active"
+
+# --- SECURITY & PRIVACY ---
+security:
+  enable_ring_signatures: true      # Anonymize sender via Ring Signatures
+  rate_limit_requests: 100          # Anti-DDoS: max requests per window
+  rate_limit_window: 60             # Anti-DDoS: window size in seconds
+  # ring_size: 8                    # Number of keys in a ring signature
+  # enable_stealth_addresses: true  # Hidden recipient identities
+  # enable_tor: false               # Route traffic through Tor
+  # enable_i2p: false               # Route traffic through I2P
+
+# --- LOGGING ---
+log_level: "INFO"                   # Detail level: DEBUG, INFO, WARN, ERROR
+# log_file: "rhizome.log"           # If set, writes JSON logs to this file

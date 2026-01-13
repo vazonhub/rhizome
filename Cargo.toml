@@ -1,6 +1,6 @@
 [package]
 name = "rhizome-p2p"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2024"
 authors = ["Kostya Betenya <betenya.kostya@mail.ru>"]
 description = "Distributed P2P networking library for the Rhizome ecosystem"
@@ -51,8 +51,8 @@ getrandom = { version = "0.2", features = ["js"] }
 all-features = true
 rustdoc-args = [
     "--cfg", "docsrs",
-    "--html-in-header", "docs/assets/header.html",
-    "--html-after-content", "docs/assets/footer.html",
-    "--index-page", "docs/overview.md",
+#    "--html-in-header", "docs/assets/header.html",
+#    "--html-after-content", "docs/assets/footer.html",
+#    "--index-page", "docs/overview.md",
     "--enable-index-page",
 ]

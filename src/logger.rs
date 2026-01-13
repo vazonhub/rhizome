@@ -1,22 +1,50 @@
+//! # Logger Module
+//!
+//! This module provides a centralized utility for initializing the global logging system
+//! based on the `tracing` ecosystem. It supports multiple output formats:
+//! - **Console Output**: Optimized for human readability in the terminal.
+//! - **File Output**: Structured JSON format, ideal for log aggregation and analysis.
+//!
+//! ## Features
+//! - Configurable log levels via function arguments or `RUST_LOG` environment variable.
+//! - Timestamp formatting using the RFC 3339 standard.
+//! - Contextual logging (e.g., including Node IDs).
+
 use std::fs::File;
 use std::path::PathBuf;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
-/// Настройка системы логирования
+/// Initializes the global tracing subscriber for the application.
+///
+/// This function should be called **once** during the application startup (usually in `main`).
+/// It configures how logs are filtered, formatted, and where they are written.
+///
+/// # Arguments
+///
+/// * `log_level` - A string representing the default log level (e.g., "info", "debug", "trace").
+/// * `log_file` - An optional path to a file. If `Some`, logs will be written in **JSON format** to that file.
+/// * `node_id` - An optional string slice representing the unique ID of the current node for startup context.
+///
+/// # Panics
+///
+/// This function will panic if:
+/// * It fails to create or open the file specified in `log_file`.
+/// * The global subscriber has already been initialized by another part of the code.
 #[allow(dead_code)]
 pub fn setup_logging(log_level: &str, log_file: Option<PathBuf>, node_id: Option<&str>) {
-    // Настройка фильтра уровня логирования
+    // Attempt to parse filter from RUST_LOG env var; fallback to the provided log_level
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level));
 
-    // Настройка таймстемпа (ISO)
+    // Configure timestamp format to RFC 3339 (Local time)
     let timer = fmt::time::ChronoLocal::rfc_3339();
 
-    // Выбор рендерера и вывод (JSON в файл или текст в консоль)
     if let Some(path) = log_file {
-        let file = File::create(path).expect("Не удалось создать файл лога");
+        // Configure JSON file logging
+        let file = File::create(path).expect("Failed to create log file");
+
         let layer = fmt::layer()
             .with_timer(timer)
-            .json() // JSONRenderer
+            .json() // Enable structured JSON output for machine parsing
             .with_writer(file);
 
         tracing_subscriber::registry()
@@ -24,7 +52,8 @@ pub fn setup_logging(log_level: &str, log_file: Option<PathBuf>, node_id: Option
             .with(layer)
             .init();
     } else {
-        let layer = fmt::layer().with_timer(timer).with_writer(std::io::stdout); // ConsoleRenderer
+        // Configure human-readable console logging
+        let layer = fmt::layer().with_timer(timer).with_writer(std::io::stdout);
 
         tracing_subscriber::registry()
             .with(filter)
@@ -32,16 +61,25 @@ pub fn setup_logging(log_level: &str, log_file: Option<PathBuf>, node_id: Option
             .init();
     }
 
-    // Аналог logger.bind(node_id=...)
+    // Log the initialization event with an optional truncated Node ID
     if let Some(id) = node_id {
         let truncated_id = if id.len() > 16 { &id[..16] } else { id };
-        tracing::info!(node_id = %truncated_id, "Logging initialized");
+
+        tracing::info!(
+            node_id = %truncated_id,
+            "Logging initialized"
+        );
     }
 }
 
-/// Получение логгера для модуля
-/// В Rust tracing автоматически добавляет имя модуля,
-/// но можно добавить дополнительный контекст
+/// Logs an informational message indicating that a specific module has been initialized.
+///
+/// This is a helper function used to track the initialization sequence of different
+/// components within the library.
+///
+/// # Arguments
+///
+/// * `name` - The name of the module or component being initialized.
 #[allow(dead_code)]
 pub fn get_logger(name: &'static str) {
     tracing::info!(module = name, "Module logger initialized");
