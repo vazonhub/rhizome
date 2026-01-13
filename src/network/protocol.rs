@@ -100,7 +100,7 @@ impl NetworkProtocol {
     }
 
     /// Stop the UDP port
-    pub async fn stop(&mut self) {
+    pub async fn stop(self: Arc<Self>) {
         self.transport.stop().await;
         info!("Network protocol stopped");
     }
