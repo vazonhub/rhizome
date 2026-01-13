@@ -1,382 +1,106 @@
-# Rhizome - Децентрализованная P2P Сеть на Kademlia DHT
+# Rhizome - P2P protocol
 
-Rhizome - это децентрализованная анонимная P2P сеть для обмена сообщениями, построенная на основе протокола Kademlia DHT с системой seed-узлов.
+<img src="docs\icon.png" width="250">
 
-## Особенности
+[![Crates.io](https://img.shields.io/crates/v/rhizome-p2p.svg)](https://crates.io/crates/rhizome-p2p)
+[![Documentation](https://docs.rs/rhizome-p2p/badge.svg)](https://docs.rs/rhizome-p2p)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Rust Edition](https://img.shields.io/badge/Rust-2024-orange.svg)](https://doc.rust-lang.org/edition-guide/rust-2024/index.html)
+[![Platform](https://img.shields.io/badge/Platform-Native%20%7C%20WASM-brightgreen.svg)](#)
 
-- 🔒 **Децентрализация**: Отсутствие центральных серверов
-- 🎭 **Анонимность**: Скрытие связей отправитель-получатель
-- 🔄 **Репликация**: Автоматическое распространение данных
-- 📊 **Популярность**: Автоматическое определение и приоритезация популярного контента
-- 🚀 **Масштабируемость**: Поддержка тысяч узлов без деградации производительности
+Rhizome is a high—performance, decentralized P2P messaging library implemented on Rust. It is based on the Kademlia DHT protocol with custom data replication and content ranking mechanisms.
 
-## Быстрый старт
+## ✨ Features
+- 🦀 `Rust Core`: Maximum performance and memory security without GC.
+- 🔒 `Anonymity`: DHT-based routing hides direct connections between network participants.
+- ⚡ `Async First`: A fully asynchronous stack based on tokio and futures.
+- 🔄 `Smart replication`: Automatic distribution of data to k-nearest nodes.
+- 📈 `Popularity system`: Content in demand gets storage priority and a higher TTL.
+- 📦 `Modularity`: You can use it as a ready-made CLI node, or connect it as a library (cargo lib) to your project.
 
-### Установка
+## 🛠 Technology stack
+- `Runtime & Async`: Fully asynchronous architecture based on tokio (full) and futures. Using async-trait for flexible component design.
+- `Persistence (Storage)`: heed is a high—performance embedded database (a wrapper over LMDB) that provides ACID transactions and instant access to data.
+- `Cryptography & Security`:
+- `RSA (with SHA-2 support)` for key management and digital signatures.
+    - `sha1, sha2, digest` — a set of cryptographic hash functions for data integrity and identification in DHT.
+- `Serialization`:
+    - `rmp-serde (MessagePack)` is the main binary protocol for minimizing traffic in a P2P network.
+    - `serde_json & serde_yaml` — for configuration and external `APIs'.
+- `Observability (Logging)`: An advanced system based on `tracing`. Support for structured logging (JSON), filtering via env-filter, and log file rotation via tracing-appender.
+- `Portability (WASM)`: Support for compilation to `WebAssembly' (wasm-bindgen) for use in browser environments, including integration with getrandom/js.
+- `Development & Quality`:
+    - Automatic style and linting control via `cargo-husky` (pre-commit hooks for fmt and clippy).
+    - The use of `thiserror` for strict and understandable error typing.
 
-1. **Клонируйте репозиторий:**
-   ```bash
-   git clone <repository-url>
-   cd rhizome
-   ```
-
-2. **Создайте виртуальное окружение (рекомендуется):**
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # Linux/Mac
-   # или
-   venv\Scripts\activate  # Windows
-   ```
-
-3. **Установите зависимости:**
-   ```bash
-   pip install -e ".[dev]"
-   # или
-   pip install -r requirements.txt
-   pip install -e ".[dev]"
-   ```
-
-4. **Настройте конфигурацию (опционально):**
-   ```bash
-   cp config.yaml.example config.yaml
-   # Отредактируйте config.yaml под свои нужды
-   ```
-   
-   **Примечание:** Если файл `config.yaml` отсутствует, будет использована конфигурация по умолчанию.
-
-### Запуск узла
-
-**Базовый запуск:**
-```bash
-python3 run_node.py
-```
-
-**Или через CLI:**
-```bash
-# С указанием типа узла
-python3 -m rhizome.cli --node-type full
-
-# С указанием конфигурационного файла
-python3 -m rhizome.cli --config /path/to/config.yaml
-
-# Доступные типы узлов: seed, full, light, mobile
-```
-
-## Использование API
-
-Rhizome предоставляет высокоуровневый API клиент (`RhizomeClient`) для удобной работы с сетью.
-
-### Базовый пример
-
-```python
-import asyncio
-from rhizome import RhizomeClient
-
-async def main():
-    # Создание и запуск клиента
-    async with RhizomeClient(config_path="config.yaml") as client:
-        # Создание треда
-        thread = await client.create_thread(
-            thread_id="my_thread",
-        title="Мой первый тред",
-            category="технологии",
-            tags=["p2p", "python"]
-        )
-        
-        # Добавление сообщения
-        message = await client.add_message(
-            thread_id="my_thread",
-            content="Привет, мир!"
-        )
-        
-        # Поиск треда
-        found = await client.find_thread("my_thread")
-        print(f"Найден тред: {found.title}")
-
-asyncio.run(main())
-```
-
-### Основные методы API
-
-#### Управление узлом
-
-- `start()` - Запуск узла и подключение к сети
-- `stop()` - Остановка узла
-- `get_node_info()` - Получение информации об узле
-
-#### Работа с тредами
-
-- `create_thread(thread_id, title, category, tags, ...)` - Создание нового треда
-- `find_thread(thread_id)` - Поиск треда по ID
-- `update_thread(thread_id, **updates)` - Обновление метаданных треда
-- `search_threads(category, tags)` - Поиск тредов по критериям
-
-#### Работа с сообщениями
-
-- `add_message(thread_id, content, parent_id, ...)` - Добавление сообщения в тред
-- `find_message(message_id)` - Поиск сообщения по ID
-
-#### Глобальные операции
-
-- `get_global_threads()` - Получение списка всех тредов
-- `update_global_threads(thread_ids)` - Обновление глобального индекса
-- `get_popular_threads(limit)` - Получение популярных тредов
-
-### Примеры использования
-
-Полные примеры находятся в директории `examples/`:
-
-- `examples/api_usage.py` - Примеры использования высокоуровневого API
-- `examples/two_nodes_demo.py` - Демонстрация работы двух узлов
-- `examples/usage_examples.py` - Базовые примеры работы с узлами
-
-## Типы узлов
-
-- **seed** - Высокая доступность, большой объем диска (>100GB), долгосрочное хранение
-- **full** - Основная рабочая нагрузка, средний объем диска (>10GB)
-- **light** - Ограниченные ресурсы, малый объем диска (<1GB)
-- **mobile** - Максимально легкий клиент, минимальный объем диска (<100MB)
-
-## Для разработчиков
-
-### Структура проекта
-
+## 📂 Project structure
 ```
 rhizome/
-├── rhizome/              # Основной пакет
-│   ├── api.py           # Высокоуровневый API клиент
-│   ├── config.py        # Конфигурация
-│   ├── cli.py           # Командная строка
-│   ├── dht/             # Модуль Kademlia DHT
-│   ├── storage/         # Модуль хранения данных
-│   ├── node/            # Модуль узлов
-│   ├── network/         # Сетевой протокол
-│   ├── popularity/      # Система популярности
-│   ├── replication/     # Репликация данных
-│   └── security/        # Безопасность
-├── tests/               # Тесты
-├── examples/            # Примеры использования
-└── config.yaml          # Конфигурация
+├── examples/            # Examples of the system operation
+├── src/                 # The main project code
+│   ├── config.rs        # Configuration Module
+│   ├── logger.rs        # The logging module
+│   ├── api.rs           # API module for external operation
+│   ├── exception.rs     # Error management module
+│   ├── dht/             # Kademlia DHT Module
+│   ├── network/         # Network operation module
+│   ├── node/            # Node Module
+│   ├── popularity/      # A module for the operation of the reputation system
+│   ├── replication/     # Data replication
+│   ├── storage/         # Storage System Module
+│   ├── utils/           # Auxiliary functions module
+│   └── security/        # The security module
 ```
 
-### Установка для разработки
-
-```bash
-# Установка зависимостей для разработки
-make install-dev
-
-# Или вручную
-pip install -r requirements.txt
-pip install -e ".[dev]"
-
-# Установка pre-commit hooks (рекомендуется)
-pip install pre-commit
-pre-commit install
+## 🛠 Установка и разработка
+Для сборки проекта вам понадобится Rust версии 1.85 или выше (так как используется Edition 2024).
+```code
+rustup update stable
 ```
 
-### Команды разработки
+### Клонирование и сборка
+```code
+Bash
+git clone https://github.com/vazonhub/rhizome.git
+cd rhizome
 
-```bash
-# Запуск тестов
-make test
-# или
-pytest
-
-# Проверка кода
-make lint
-# или
-flake8 rhizome tests
-mypy rhizome
-
-# Форматирование кода
-make format
-# или
-black rhizome tests examples
-isort rhizome tests examples
-
-# Запуск узла
-make run
+# Сборка библиотеки и бинарных файлов
+cargo build
 ```
 
-### Pre-commit Hooks
+### Запуск тестов
+В проекте используются как модульные, так и интеграционные тесты:
+```code
+Bash
+# Запустить все тесты
+cargo test
 
-Pre-commit hooks автоматически проверяют код перед каждым коммитом:
-
-- Форматирование кода (Black)
-- Сортировка импортов (isort)
-- Линтинг (flake8)
-- Проверка синтаксиса YAML/JSON/TOML
-- Поиск отладочных операторов
-
-**Установка:**
-```bash
-pip install pre-commit
-pre-commit install
+# Запустить тесты с выводом логов в консоль
+RUST_LOG=debug cargo test -- --nocapture
 ```
 
-**Использование:**
-Hooks запускаются автоматически при каждом `git commit`. Для ручного запуска:
-```bash
-pre-commit run --all-files
-```
+### Статический анализ и форматирование
+В проект интегрирован cargo-husky. Это значит, что при выполнении cargo test автоматически проверяются:
+- Форматирование (`cargo fmt`)
+- Линтер (`cargo clippy`)
 
-### Архитектура модулей
+## 🤝 Participation in the development
+Мы приветствуем Pull Requests!
+1. Create repo form from master;
+2. Create branch: `git checkout -b feature/amazing-feature`;
+3. Commit changes: `git commit -m 'Add amazing feature'`;
+4. Create push in your branch: `git push origin feature/amazing-feature`;
+5. Open `Pull Request`.
 
-- **DHT (dht/)**: Реализация протокола Kademlia DHT
-  - `node.py` - Node ID и представление узла
-  - `routing_table.py` - Таблица маршрутизации (k-бакеты)
-  - `protocol.py` - Операции DHT (PING, FIND_NODE, FIND_VALUE, STORE)
+> We use git flow in branch architecture.
+> Create your pull request in `develop` branch.
 
-- **Storage (storage/)**: Хранение данных
-  - `storage.py` - Локальное хранилище на базе LMDB с поддержкой TTL
-  - `data_types.py` - Типы данных для тредов и сообщений
-  - `keys.py` - Управление ключами DHT
+## 📄 License
+Distributed under the MIT license. Details in the file [LICENSE](./LICENSE.txt).
 
-- **Node (node/)**: Типы узлов
-  - `base_node.py` - Базовый класс для всех типов узлов
-  - `seed_node.py`, `full_node.py`, `light_node.py`, `mobile_node.py` - Конкретные реализации
+## 👥 Author
+Rhizome Dev Team - [GitHub](https://github.com/orgs/vazonhub/people).
 
-- **Network (network/)**: Сетевой протокол
-  - `transport.py` - UDP транспорт
-  - `protocol.py` - Протокол обмена сообщениями
+---
 
-- **Popularity (popularity/)**: Система популярности
-  - `metrics.py` - Сбор метрик
-  - `ranking.py` - Ранжирование контента
-  - `exchanger.py` - Обмен метриками между узлами
-
-### Тестирование
-
-```bash
-# Запуск всех тестов
-pytest
-
-# С покрытием кода
-pytest --cov=rhizome --cov-report=html
-
-# Конкретный тест
-pytest tests/test_storage.py
-```
-
-## Конфигурация
-
-Основные параметры в `config.yaml`:
-
-```yaml
-dht:
-  k: 20                    # Размер k-бакета
-  alpha: 3                 # Количество параллельных запросов
-  request_timeout: 10.0    # Таймаут запросов
-
-network:
-  listen_port: 8468        # Порт для прослушивания
-  bootstrap_nodes: []      # Список узлов для bootstrap
-
-node:
-  node_type: "full"        # Тип узла (seed, full, light, mobile)
-
-storage:
-  data_dir: "data"         # Директория для данных
-  max_storage_size: 10737418240  # Максимальный размер (10 GB)
-  default_ttl: 86400       # Время жизни по умолчанию (1 день)
-
-popularity:
-  update_interval: 3600    # Интервал обновления метрик
-  popularity_threshold: 7.0  # Порог популярности
-```
-
-## Устранение неполадок
-
-### Ошибка "ModuleNotFoundError"
-
-Убедитесь, что все зависимости установлены:
-```bash
-pip install -r requirements.txt
-pip install -e ".[dev]"
-```
-
-### Ошибка "Config file not found"
-
-Создайте файл конфигурации:
-```bash
-cp config.yaml.example config.yaml
-```
-
-### Порт уже занят
-
-Измените порт в `config.yaml`:
-```yaml
-network:
-  listen_port: 8469  # Другой порт
-```
-
-### Python версия
-
-Проект требует Python >= 3.10. Проверьте версию:
-```bash
-python3 --version
-```
-
-## Примеры
-
-### Создание форума
-
-```python
-async def create_forum():
-    async with RhizomeClient() as client:
-        # Создаем категории
-        categories = ["технологии", "наука", "искусство"]
-        
-        for category in categories:
-            thread = await client.create_thread(
-                thread_id=f"category_{category}",
-                title=f"Категория: {category}",
-                category=category
-            )
-            print(f"Создана категория: {thread.title}")
-```
-
-### Работа с сообщениями
-
-```python
-async def add_comments():
-    async with RhizomeClient() as client:
-        thread_id = "discussion_1"
-        
-        # Первое сообщение
-        root_msg = await client.add_message(
-            thread_id=thread_id,
-            content="Начало обсуждения"
-        )
-        
-        # Ответы
-        for i in range(5):
-            await client.add_message(
-                thread_id=thread_id,
-                content=f"Ответ #{i+1}",
-                parent_id=root_msg.id
-            )
-```
-
-## Дополнительные ресурсы
-
-- 📖 [CHANGELOG.md](CHANGELOG.md) - История изменений
-- 📋 [PLAN.md](PLAN.md) - План разработки
-- 🔧 [Makefile](Makefile) - Полезные команды
-
-## Вклад в проект
-
-1. Создайте ветку для новой функции
-2. Реализуйте изменения
-3. Добавьте тесты
-4. Убедитесь, что все тесты проходят (`make test`)
-5. Проверьте форматирование (`make format`)
-6. Создайте pull request
-
-## Лицензия
-
-MIT License
-
-## Авторы
-
-Rhizome Team
+_Inspired by the resilience of nature. Built for the freedom of speech._

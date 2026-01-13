@@ -10,7 +10,9 @@ use crate::dht::routing_table::RoutingTable;
 use crate::exceptions::{DHTError, RhizomeError};
 use crate::storage::main::Storage;
 
-/// Интерфейс для сетевого протокола, чтобы избежать циклической зависимости
+/// Interface of the Network protocol for avoid cycle refs
+///
+/// We can't say how data transfer does work: by TCP, UDP or may be owl like in Hogwarts ^)
 #[async_trait]
 pub trait NetworkProtocolTrait: Send + Sync {
     async fn ping(&self, node: &Node) -> bool;
@@ -33,10 +35,15 @@ pub trait NetworkProtocolTrait: Send + Sync {
     ) -> Result<bool, RhizomeError>;
 }
 
+/// The heart of the Kademlia DHT protocol
 pub struct DHTProtocol {
+    /// friends table with async protection
     pub routing_table: Arc<RwLock<RoutingTable>>,
+    /// Local data storage
     pub storage: Arc<Storage>,
+    /// Link to the network slice
     pub network_protocol: Option<Arc<dyn NetworkProtocolTrait>>,
+    /// Parallelism parameter _(usually 3)_
     pub alpha: usize,
 }
 
@@ -54,7 +61,11 @@ impl DHTProtocol {
         }
     }
 
-    /// Проверка доступности узла
+    /// Check node accessibility
+    ///
+    /// If we have connection we try to ping node:
+    /// - If node is live update last `update_seen()`
+    /// - If node reject our request we `record_failed_ping()`
     pub async fn ping(&self, node: &mut Node) -> bool {
         if let Some(net) = &self.network_protocol {
             let result = net.ping(node).await;
@@ -71,7 +82,9 @@ impl DHTProtocol {
         }
     }
 
-    /// Поиск узлов по идентификатору (Kademlia lookup)
+    /// Kademlia lookup
+    ///
+    /// Algorithm finds the closest nodes for our node by using our alpha
     pub async fn find_node(&self, target_id: &NodeID) -> Result<Vec<Node>, RhizomeError> {
         let mut closest = {
             let rt = self.routing_table.read().await;
@@ -135,9 +148,14 @@ impl DHTProtocol {
         Ok(closest)
     }
 
-    /// Поиск значения по ключу
+    /// Find value
+    ///
+    /// Firstly we should check in our local storage:
+    /// - If we have the value we will return them
+    ///  
+    /// If we do not have data we start iterative find.
+    /// If some node send signal we choose the data and return them.
     pub async fn find_value(&self, key: &[u8]) -> Result<Vec<u8>, RhizomeError> {
-        // 1. Локальное хранилище
         if let Some(val) = self.storage.get(key.to_vec()).await? {
             return Ok(val);
         }
@@ -147,7 +165,6 @@ impl DHTProtocol {
             .as_ref()
             .ok_or(RhizomeError::Dht(DHTError::ValueNotFound))?;
 
-        // Создаем TargetID из ключа (первых 20 байт)
         let mut id_bytes = [0u8; 20];
         let len = key.len().min(20);
         id_bytes[..len].copy_from_slice(&key[..len]);
@@ -216,7 +233,10 @@ impl DHTProtocol {
         Err(RhizomeError::Dht(DHTError::ValueNotFound))
     }
 
-    /// Сохранение данных (Kademlia STORE)
+    /// Store data
+    ///
+    /// Firstly in our local store
+    /// Secondly send data for our closest nodes
     pub async fn store(&self, key: &[u8], value: &[u8], ttl: i32) -> Result<bool, RhizomeError> {
         // 1. Сохраняем локально
         self.storage.put(key.to_vec(), value.to_vec(), ttl).await?;
@@ -231,7 +251,6 @@ impl DHTProtocol {
         id_bytes[..len].copy_from_slice(&key[..len]);
         let target_id = NodeID::new(id_bytes);
 
-        // Находим ближайшие узлы
         let closest_nodes = self.find_node(&target_id).await?;
 
         if closest_nodes.is_empty() {

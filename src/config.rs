@@ -97,6 +97,9 @@ fn d_rate_win() -> i32 {
 fn d_log_level() -> String {
     "INFO".to_string()
 }
+pub fn d_bucket_timeout() -> f64 {
+    3600.0
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DHTConfig {
