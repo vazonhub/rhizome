@@ -51,8 +51,8 @@ getrandom = { version = "0.2", features = ["js"] }
 all-features = true
 rustdoc-args = [
     "--cfg", "docsrs",
-    "--html-in-header", "docs/assets/header.html",
-    "--html-after-content", "docs/assets/footer.html",
-    "--index-page", "docs/overview.md",
+#    "--html-in-header", "docs/assets/header.html",
+#    "--html-after-content", "docs/assets/footer.html",
+#    "--index-page", "docs/overview.md",
     "--enable-index-page",
 ]

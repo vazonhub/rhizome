@@ -1,43 +1,19 @@
-mod config;
-mod exceptions;
-mod logger;
+/// Module for work with network settings
+pub mod config;
+/// Module for work with exceptions
+pub mod exceptions;
+/// Module for work with logs
+pub mod logger;
 
-mod utils {
-    pub mod crypto;
-    pub mod serialization;
-}
-mod dht {
-    pub mod node;
-    pub mod protocol;
-    pub mod routing_table;
-}
-mod storage {
-    pub mod data_types;
-    pub mod keys;
-    pub mod main;
-}
-mod security {
-    pub mod rate_limiter;
-}
-mod replication {
-    pub mod replicator;
-}
-mod popularity {
-    pub mod exchanger;
-    pub mod metrics;
-    pub mod ranking;
-}
-mod node {
-    pub mod base_node;
-    pub mod full_node;
-    pub mod light_node;
-    pub mod mobile_node;
-    pub mod seed_node;
-}
-mod network {
-    pub mod protocol;
-    pub mod transport;
-}
+/// Kademlia DHT realization
+pub mod dht;
+pub mod network;
+pub mod node;
+pub mod popularity;
+pub mod replication;
+pub mod security;
+pub mod storage;
+pub mod utils;
 
 use serde_json::Value;
 use std::path::PathBuf;
@@ -53,7 +29,6 @@ use crate::storage::keys::KeyManager;
 use crate::utils::crypto::hash_key;
 use crate::utils::serialization::{deserialize, serialize};
 
-/// Высокоуровневый клиент для работы с Rhizome P2P сетью
 pub struct RhizomeClient {
     pub config: Config,
     pub node: Option<Arc<FullNode>>,
