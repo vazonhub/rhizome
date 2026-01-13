@@ -16,11 +16,11 @@ pub enum SerializationError {
     MsgpackDecodeError(#[from] rmp_serde::decode::Error),
 }
 
-/// Сериализация данных
+/// Data serialization
 ///
 /// Args:
-///     data: Данные для сериализации (любой тип с трейтом Serialize)
-///     format: Формат сериализации ("msgpack" или "json")
+/// - data: Data for serialization (any type with the Serialize attribute)
+/// - format: Serialization format ("msgpack" or "json")
 pub fn serialize<T: Serialize>(data: &T, format: &str) -> Result<Vec<u8>, SerializationError> {
     match format {
         "msgpack" => {
@@ -36,11 +36,11 @@ pub fn serialize<T: Serialize>(data: &T, format: &str) -> Result<Vec<u8>, Serial
     }
 }
 
-/// Десериализация данных
+/// Deserialization of data
 ///
 /// Args:
-///     data: Сериализованные данные (байты)
-///     format: Формат сериализации ("msgpack" или "json")
+/// - data: Serialized data (bytes)
+/// - format: Serialization format ("msgpack" or "json")
 pub fn deserialize<T: DeserializeOwned>(
     data: &[u8],
     format: &str,

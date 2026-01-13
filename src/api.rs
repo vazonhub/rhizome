@@ -23,11 +23,13 @@ pub mod logger;
 pub mod dht;
 /// Realization of network working on more low transport level
 pub mod network;
+/// Module for work with nodes: types of nodes and their main functions
 pub mod node;
 pub mod popularity;
 pub mod replication;
 pub mod security;
 pub mod storage;
+/// Some help functional for work with serialization and crypto
 pub mod utils;
 
 use serde_json::Value;
