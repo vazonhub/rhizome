@@ -1,7 +1,7 @@
 //! # Rhizome Exceptions Module
 //!
 //! This module contains all custom error types used throughout the Rhizome library.
-//! It is designed to be compatible with the `?` operator by providing a root 
+//! It is designed to be compatible with the `?` operator by providing a root
 //! `RhizomeError` enum that encapsulates more specific error types.
 
 use thiserror::Error;
