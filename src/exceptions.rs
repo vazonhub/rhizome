@@ -97,14 +97,4 @@ pub enum SecurityError {
 ///
 /// Use this alias to simplify function signatures across the project.
 ///
-/// # Example
-///
-/// ```rust
-/// use crate::exceptions::Result;
-///
-/// fn do_something() -> Result<()> {
-///     // Your logic here
-///     Ok(())
-/// }
-/// ```
 pub type Result<T> = std::result::Result<T, RhizomeError>;

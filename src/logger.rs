@@ -30,22 +30,6 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 /// This function will panic if:
 /// * It fails to create or open the file specified in `log_file`.
 /// * The global subscriber has already been initialized by another part of the code.
-///
-/// # Examples
-///
-/// **Basic initialization to console:**
-/// ```rust
-/// use std::path::PathBuf;
-/// // Logs with level "info" or higher will be printed to stdout
-/// setup_logging("info", None, Some("node_12345"));
-/// ```
-///
-/// **Initialization to a JSON file:**
-/// ```rust
-/// use std::path::PathBuf;
-/// let path = PathBuf::from("logs/node.log");
-/// setup_logging("debug", Some(path), None);
-/// ```
 #[allow(dead_code)]
 pub fn setup_logging(log_level: &str, log_file: Option<PathBuf>, node_id: Option<&str>) {
     // Attempt to parse filter from RUST_LOG env var; fallback to the provided log_level
@@ -96,12 +80,6 @@ pub fn setup_logging(log_level: &str, log_file: Option<PathBuf>, node_id: Option
 /// # Arguments
 ///
 /// * `name` - The name of the module or component being initialized.
-///
-/// # Examples
-///
-/// ```rust
-/// get_logger("dht_protocol");
-/// ```
 #[allow(dead_code)]
 pub fn get_logger(name: &'static str) {
     tracing::info!(module = name, "Module logger initialized");
