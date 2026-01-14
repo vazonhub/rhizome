@@ -26,6 +26,7 @@ pub mod network;
 /// Module for work with nodes: types of nodes and their main functions
 pub mod node;
 pub mod popularity;
+/// Need for data copying to other nodes in network
 pub mod replication;
 /// Security module for create network more stable
 pub mod security;

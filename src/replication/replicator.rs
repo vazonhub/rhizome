@@ -6,10 +6,15 @@ use crate::dht::protocol::DHTProtocol;
 use crate::popularity::ranking::RankedItem;
 use crate::storage::main::Storage;
 
+/// Duplicate data to the other node
 pub struct Replicator {
+    /// DHT protocol structure
     dht_protocol: Arc<DHTProtocol>,
+    /// Access to the local storage with our node data
     storage: Arc<Storage>,
+    /// How many replications should this data has
     min_replication_factor: usize,
+    /// How many replications should be if data very popular
     popular_replication_factor: usize,
 }
 
@@ -28,7 +33,9 @@ impl Replicator {
         }
     }
 
-    /// Репликация популярных элементов
+    /// Replication of popular elements
+    ///
+    /// Work smth like CDN network
     pub async fn replicate_popular_items(
         &self,
         ranked_items: Vec<RankedItem>,
@@ -36,7 +43,6 @@ impl Replicator {
     ) -> HashMap<Vec<u8>, bool> {
         let mut results = HashMap::new();
 
-        // Фильтруем популярные элементы
         let popular_items: Vec<&RankedItem> = ranked_items
             .iter()
             .filter(|item| item.score >= popularity_threshold)
@@ -52,22 +58,18 @@ impl Replicator {
             let key = &item.key;
             let key_hex = hex::encode(&key[..key.len().min(8)]);
 
-            // Получаем значение из хранилища
             let value_result = self.storage.get(key.clone()).await;
 
             match value_result {
                 Ok(Some(value)) => {
-                    // Проверяем текущий коэффициент репликации из метрик
                     let current_replication = item.metrics.replication_count as usize;
                     let target_replication = self.popular_replication_factor;
 
                     if current_replication >= target_replication {
-                        // Уже достаточно репликаций
                         results.insert(key.clone(), true);
                         continue;
                     }
 
-                    // Реплицируем через STORE (TTL 30 дней)
                     let ttl = 2592000;
                     match self.dht_protocol.store(key, &value, ttl).await {
                         Ok(success) => {
@@ -111,7 +113,9 @@ impl Replicator {
         results
     }
 
-    /// Обеспечение минимальной репликации для списка ключей
+    /// Replication for basic data
+    ///
+    /// Algo only send this data once to every node in network for their minimal life
     pub async fn ensure_minimal_replication(
         &self,
         keys: Vec<Vec<u8>>,
@@ -140,12 +144,13 @@ impl Replicator {
         results
     }
 
-    /// Экстренная репликация при обнаружении потери узла
+    /// Panic replication
+    ///
+    /// If node leave us bad data should be sent for do not die
     pub async fn emergency_replication(&self, key: Vec<u8>, value: Vec<u8>) -> bool {
         let key_hex = hex::encode(&key[..key.len().min(8)]);
         warn!(key = %key_hex, "Emergency replication triggered");
 
-        // Реплицируем с высоким приоритетом и TTL 30 дней
         let ttl = 2592000;
         match self.dht_protocol.store(&key, &value, ttl).await {
             Ok(true) => {
