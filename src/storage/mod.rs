@@ -7,4 +7,7 @@ pub mod data_types;
 ///
 /// It means that by this module anyone can use thread id and choose one uniq hash for data
 pub mod keys;
+/// Drive of storage
+///
+/// Work with TTL and responsible for storaging data on user device
 pub mod main;

@@ -86,8 +86,8 @@ impl DHTKeyBuilder {
 ///
 /// It is template for work with builder
 pub struct KeyManager {
-    // В Rust нам не обязательно хранить инстанс билдера,
-    // если методы статические, но для сохранения структуры Python-кода:
+    // In Rust, we don't need to save builder instance
+    // if methods are static
 }
 
 impl Default for KeyManager {
