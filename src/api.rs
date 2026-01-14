@@ -39,7 +39,6 @@ pub mod utils;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::{Duration, sleep};
 
 // Импортируем все компоненты, созданные ранее
@@ -49,6 +48,7 @@ use crate::storage::data_types::{Message, ThreadMetadata};
 use crate::storage::keys::KeyManager;
 use crate::utils::crypto::hash_key;
 use crate::utils::serialization::{deserialize, serialize};
+use crate::utils::time::get_now_i64;
 
 pub struct RhizomeClient {
     pub config: Config,
@@ -112,13 +112,6 @@ impl RhizomeClient {
         Ok(())
     }
 
-    fn get_now() -> i64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64
-    }
-
     /// Создание нового треда
     pub async fn create_thread(
         &self,
@@ -137,12 +130,12 @@ impl RhizomeClient {
         let thread_meta = ThreadMetadata {
             id: thread_id.to_string(),
             title: title.to_string(),
-            created_at: Self::get_now(),
+            created_at: get_now_i64(),
             creator_pubkey: creator,
             category,
             tags: tags.unwrap_or_default(),
             message_count: 0,
-            last_activity: Self::get_now(),
+            last_activity: get_now_i64(),
             popularity_score: 0.0,
             encryption_type: "public".to_string(),
             access_control: None,
@@ -199,7 +192,7 @@ impl RhizomeClient {
         thread_meta.last_activity = updates
             .get("last_activity")
             .and_then(|v| v.as_i64())
-            .unwrap_or_else(Self::get_now);
+            .unwrap_or_else(get_now_i64);
 
         let node = self.node.as_ref().unwrap();
         let meta_key = self.key_manager.get_thread_meta_key(thread_id);
@@ -227,7 +220,7 @@ impl RhizomeClient {
             .await?
             .ok_or_else(|| format!("Thread not found: {}", thread_id))?;
 
-        let timestamp = Self::get_now();
+        let timestamp = get_now_i64();
         let message_id = format!("msg_{}_{}", thread_id, timestamp);
 
         let signature = author_signature.unwrap_or_else(|| {

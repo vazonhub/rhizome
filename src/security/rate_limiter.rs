@@ -1,8 +1,8 @@
 use std::collections::{HashMap, VecDeque};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::warn;
 
 use crate::exceptions::{NetworkError, RhizomeError};
+use crate::utils::time::get_now_f64;
 
 /// Structure for limit messages peer some period of time
 ///
@@ -29,25 +29,16 @@ impl RateLimiter {
             max_requests,
             window_seconds,
             per_node_limit,
-            // Резервируем место для оптимизации (аналог maxlen в Python)
             request_history: VecDeque::with_capacity(max_requests * 2),
             node_requests: HashMap::new(),
         }
-    }
-
-    /// Get current time in seconds
-    fn get_current_time(&self) -> f64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_secs_f64()
     }
 
     /// Check rate limit
     ///
     /// Main function which work with all requests and can block some requests if they do not fit
     pub fn check_rate_limit(&mut self, node_id: Option<&[u8]>) -> Result<bool, RhizomeError> {
-        let current_time = self.get_current_time();
+        let current_time = get_now_f64();
 
         self.cleanup_old_requests(current_time);
 
@@ -118,7 +109,7 @@ impl RateLimiter {
 
     /// Getting requests statistics for analyze
     pub fn get_stats(&mut self) -> HashMap<String, f64> {
-        let current_time = self.get_current_time();
+        let current_time = get_now_f64();
         self.cleanup_old_requests(current_time);
 
         let mut stats = HashMap::new();

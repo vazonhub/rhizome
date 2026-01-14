@@ -1,7 +1,6 @@
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 
@@ -9,14 +8,7 @@ use crate::dht::node::Node;
 use crate::network::protocol::NetworkProtocol;
 use crate::popularity::metrics::{MetricsCollector, PopularityMetrics};
 use crate::popularity::ranking::{PopularityRanker, RankedItem};
-
-/// Return current time in seconds
-fn get_now() -> f64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs_f64()
-}
+use crate::utils::time::get_now_f64;
 
 /// Structure for exchange popularity nodes
 pub struct PopularityExchanger {
@@ -222,7 +214,7 @@ impl PopularityExchanger {
 
         // Обновляем состояние
         *self.global_ranking.write().await = consensus_ranking;
-        *self.global_ranking_updated.write().await = get_now();
+        *self.global_ranking_updated.write().await = get_now_f64();
 
         info!(
             local_items = local_rankings.len(),

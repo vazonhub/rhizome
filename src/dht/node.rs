@@ -1,8 +1,8 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::utils::crypto::compute_distance;
+use crate::utils::time::get_now_f64;
 
 /// 160-bits node identifier for Kademlia DHT Network
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -52,10 +52,7 @@ impl Node {
     ///
     /// Last seen of node is now after node create
     pub fn new(node_id: NodeID, address: String, port: u16) -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs_f64();
+        let now = get_now_f64();
 
         Self {
             node_id,
@@ -70,10 +67,7 @@ impl Node {
     ///
     /// Call if we have some pings from node
     pub fn update_seen(&mut self) {
-        self.last_seen = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs_f64();
+        self.last_seen = get_now_f64();
         self.failed_pings = 0;
     }
 
@@ -88,10 +82,7 @@ impl Node {
     ///
     /// Function compare current time with time of last seen of the node
     pub fn is_stale(&self, timeout: f64) -> bool {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs_f64();
+        let now = get_now_f64();
         (now - self.last_seen) > timeout
     }
 }

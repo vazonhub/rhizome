@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::popularity::metrics::PopularityMetrics;
+use crate::utils::time::get_now_f64;
 
 /// Element with ranting of popularity
 #[derive(Debug, Clone)]
@@ -24,14 +24,6 @@ impl PopularityRanker {
         }
     }
 
-    /// Return current time in seconds
-    fn get_now(&self) -> f64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs_f64()
-    }
-
     /// Calculate ranking of popularity
     pub fn calculate_score(&self, metrics: &PopularityMetrics, adaptive_weights: bool) -> f64 {
         // Базовые веса
@@ -43,7 +35,7 @@ impl PopularityRanker {
         let mut w_seed_coverage = 0.10;
 
         if adaptive_weights {
-            let age_seconds = self.get_now() - metrics.first_seen;
+            let age_seconds = get_now_f64() - metrics.first_seen;
 
             if age_seconds < 86400.0 {
                 w_freshness = 0.30;

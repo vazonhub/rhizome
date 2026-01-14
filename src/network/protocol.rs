@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration};
 use tokio::sync::{Mutex, RwLock, oneshot};
 use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
@@ -18,6 +18,7 @@ use crate::network::transport::{Message, UDPTransport};
 use crate::popularity::exchanger::PopularityExchanger;
 use crate::security::rate_limiter::RateLimiter;
 use crate::storage::main::Storage;
+use crate::utils::time::get_now_f64;
 
 /// Message structure
 #[derive(Serialize, Deserialize, Debug)]
@@ -345,10 +346,7 @@ impl NetworkProtocol {
             id: msg_id,
             node_id: self.node_id.0,
             payload,
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs_f64(),
+            timestamp: get_now_f64(),
         };
         rmp_serde::to_vec(&msg).map_err(|_| RhizomeError::Network(NetworkError::General))
     }

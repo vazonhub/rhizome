@@ -1,15 +1,7 @@
+use crate::utils::time::get_now_f64;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{debug, info};
-
-/// Return current time in seconds
-fn get_now() -> f64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs_f64()
-}
 
 /// Collect metrics by check all manipulations with data
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,7 +35,7 @@ pub struct PopularityMetrics {
 
 impl PopularityMetrics {
     pub fn new(key: Vec<u8>) -> Self {
-        let now = get_now();
+        let now = get_now_f64();
         Self {
             key,
             request_count: 0,
@@ -64,7 +56,7 @@ impl PopularityMetrics {
 
     /// Register active action
     pub fn update_request(&mut self, node_id: Option<Vec<u8>>) {
-        let now = get_now();
+        let now = get_now_f64();
         self.request_count += 1;
         self.last_request = now;
 
@@ -100,7 +92,7 @@ impl PopularityMetrics {
             Some(a) => a,
             None => {
                 let start_time = self.created_at.unwrap_or(self.first_seen);
-                get_now() - start_time
+                get_now_f64() - start_time
             }
         };
 
@@ -210,7 +202,7 @@ impl MetricsCollector {
     }
 
     pub fn cleanup_old_metrics(&mut self, max_age_days: u64) {
-        let now = get_now();
+        let now = get_now_f64();
         let max_age = max_age_days as f64 * 86400.0;
 
         let initial_len = self.metrics.len();
