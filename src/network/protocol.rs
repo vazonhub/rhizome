@@ -353,6 +353,39 @@ impl NetworkProtocol {
         rmp_serde::to_vec(&msg).map_err(|_| RhizomeError::Network(NetworkError::General))
     }
 
+    /// Get global ranking
+    pub async fn get_global_ranking_remote(
+        &self,
+        node: &Node,
+    ) -> Result<Vec<serde_json::Value>, RhizomeError> {
+        let msg_id = self.generate_msg_id();
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.pending_requests.lock().await.insert(msg_id, tx);
+
+        let addr: std::net::SocketAddr = format!("{}:{}", node.address, node.port).parse().unwrap();
+
+        let payload = serde_json::json!({});
+        let data = self.pack_message(MSG_GLOBAL_RANKING_REQUEST, msg_id, payload)?;
+        self.transport.send(&data, addr).await?;
+
+        match tokio::time::timeout(self.request_timeout, rx).await {
+            Ok(Ok((msg_type, response_payload))) => {
+                if msg_type == MSG_GLOBAL_RANKING_RESPONSE {
+                    return Ok(response_payload["ranking"]
+                        .as_array()
+                        .cloned()
+                        .unwrap_or_default());
+                }
+                Err(RhizomeError::Network(NetworkError::General))
+            }
+            _ => {
+                self.pending_requests.lock().await.remove(&msg_id);
+                Err(RhizomeError::Network(NetworkError::General))
+            }
+        }
+    }
+
     /// Generate uniq message id
     pub fn generate_msg_id(&self) -> [u8; 16] {
         rand::thread_rng().r#gen()
