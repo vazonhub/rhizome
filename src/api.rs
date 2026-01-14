@@ -49,6 +49,7 @@ use crate::utils::crypto::hash_key;
 use crate::utils::serialization::{deserialize, serialize};
 use crate::utils::time::get_now_i64;
 
+/// API client for work with protocol
 pub struct RhizomeClient {
     pub config: Config,
     pub node: Option<Arc<FullNode>>,
