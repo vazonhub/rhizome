@@ -2,23 +2,28 @@ use std::collections::{HashMap, VecDeque};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::warn;
 
-// Предполагаем, что ошибки импортируются из вашего модуля exceptions
 use crate::exceptions::{NetworkError, RhizomeError};
 
+/// Structure for limit messages peer some period of time
+///
+/// Use algo of Sliding Window
 pub struct RateLimiter {
+    /// Global limit of requests
     max_requests: usize,
+    /// Size of sliding window
     window_seconds: u64,
+    /// Limit for one node
     per_node_limit: usize,
 
-    // История общих запросов (timestamps)
+    /// History of all requests (timestamps)
     request_history: VecDeque<f64>,
 
-    // Запросы по узлам: NodeID -> deque of timestamps
+    /// Requests by node: NodeID -> deque of timestamps
     node_requests: HashMap<Vec<u8>, VecDeque<f64>>,
 }
 
 impl RateLimiter {
-    /// Инициализация rate limiter
+    /// Initialize rate limiter
     pub fn new(max_requests: usize, window_seconds: u64, per_node_limit: usize) -> Self {
         Self {
             max_requests,
@@ -30,7 +35,7 @@ impl RateLimiter {
         }
     }
 
-    /// Получение текущего времени в секундах (аналог time.time())
+    /// Get current time in seconds
     fn get_current_time(&self) -> f64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -38,14 +43,14 @@ impl RateLimiter {
             .as_secs_f64()
     }
 
-    /// Проверка rate limit
+    /// Check rate limit
+    ///
+    /// Main function which work with all requests and can block some requests if they do not fit
     pub fn check_rate_limit(&mut self, node_id: Option<&[u8]>) -> Result<bool, RhizomeError> {
         let current_time = self.get_current_time();
 
-        // 1. Очищаем старые запросы
         self.cleanup_old_requests(current_time);
 
-        // 2. Проверяем общий лимит
         let recent_requests = self.request_history.len();
 
         if recent_requests >= self.max_requests {
@@ -57,7 +62,6 @@ impl RateLimiter {
             return Err(RhizomeError::Network(NetworkError::RateLimitError));
         }
 
-        // 3. Проверяем per-node лимит
         if let Some(id) = node_id {
             let node_id_vec = id.to_vec();
             let node_history = self
@@ -78,17 +82,15 @@ impl RateLimiter {
                 return Err(RhizomeError::Network(NetworkError::RateLimitError));
             }
 
-            // Добавляем в историю узла
             node_history.push_back(current_time);
         }
 
-        // Запрос разрешен, добавляем в общую историю
         self.request_history.push_back(current_time);
 
         Ok(true)
     }
 
-    /// Очистка старых запросов (аналог _cleanup_old_requests)
+    /// Cleanup old requests by window size in sliding window
     fn cleanup_old_requests(&mut self, current_time: f64) {
         let window = self.window_seconds as f64;
 
@@ -101,8 +103,6 @@ impl RateLimiter {
             }
         }
 
-        // Очищаем историю по узлам
-        // В Rust итерация по HashMap с удалением делается через retain
         self.node_requests.retain(|_, history| {
             while let Some(&first_ts) = history.front() {
                 if current_time - first_ts > window {
@@ -111,13 +111,12 @@ impl RateLimiter {
                     break;
                 }
             }
-            // Удаляем пустые истории (аналог del self.node_requests[node_id])
+
             !history.is_empty()
         });
     }
 
-    #[allow(dead_code)]
-    /// Получение статистики (аналог get_stats)
+    /// Getting requests statistics for analyze
     pub fn get_stats(&mut self) -> HashMap<String, f64> {
         let current_time = self.get_current_time();
         self.cleanup_old_requests(current_time);

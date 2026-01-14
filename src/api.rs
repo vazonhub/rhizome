@@ -27,6 +27,7 @@ pub mod network;
 pub mod node;
 pub mod popularity;
 pub mod replication;
+/// Security module for create network more stable
 pub mod security;
 /// Local storage in node for fast data choosing
 pub mod storage;
