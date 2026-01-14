@@ -135,7 +135,6 @@ impl DHTProtocol {
                 queried.insert(node.node_id);
             }
 
-            // Обновляем список ближайших
             let mut all_found: Vec<Node> = seen_nodes.values().cloned().collect();
             all_found.sort_by_key(|n| n.node_id.distance_to(target_id));
             closest = all_found.into_iter().take(self.alpha).collect();
@@ -191,7 +190,6 @@ impl DHTProtocol {
                 break;
             }
 
-            // Параллельно запрашиваем значение
             let mut value_tasks = Vec::new();
             for node in &candidates {
                 value_tasks.push(net.find_value(key, node));
@@ -200,11 +198,10 @@ impl DHTProtocol {
 
             for result in results {
                 if let Ok(Some(val)) = result {
-                    return Ok(val); // Нашли значение!
+                    return Ok(val);
                 }
             }
 
-            // Если не нашли, расширяем поиск узлов
             let mut node_tasks = Vec::new();
             for node in &candidates {
                 node_tasks.push(net.find_node(&target_id, node));
@@ -238,7 +235,6 @@ impl DHTProtocol {
     /// Firstly in our local store
     /// Secondly send data for our closest nodes
     pub async fn store(&self, key: &[u8], value: &[u8], ttl: i32) -> Result<bool, RhizomeError> {
-        // 1. Сохраняем локально
         self.storage.put(key.to_vec(), value.to_vec(), ttl).await?;
 
         let net = match &self.network_protocol {

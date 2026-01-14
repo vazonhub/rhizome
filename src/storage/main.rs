@@ -1,21 +1,25 @@
 use std::fs;
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::StorageConfig;
 use crate::exceptions::StorageError;
 use crate::utils::serialization::{deserialize, serialize};
+use crate::utils::time::get_now_f64;
 use heed::types::Bytes;
 use heed::{Database, Env, EnvOpenOptions};
 use serde::{Deserialize, Serialize};
 use tokio::task;
 
+/// Head of data
 #[derive(Serialize, Deserialize, Debug)]
 struct MetaData {
+    /// Time of expiration
     pub expires_at: f64,
+    /// Size of storing data
     pub size: usize,
 }
 
+/// Body of data
 pub struct Storage {
     #[allow(dead_code)]
     config: StorageConfig,
@@ -30,7 +34,6 @@ impl Storage {
         fs::create_dir_all(&data_dir)?;
 
         let db_path = data_dir.join("data.lmdb");
-        // Создаем папку для LMDB, если её нет (LMDB ожидает папку или файл)
         if !db_path.exists() {
             fs::create_dir_all(&db_path)?;
         }
@@ -44,8 +47,6 @@ impl Storage {
 
         let mut wtxn = env.write_txn()?;
 
-        // Открываем или создаем базы данных
-        // В heed базы данных типизированы, используем ByteSlice для сырых данных (bytes)
         let db = env.create_database(&mut wtxn, Some("main"))?;
         let meta_db = env.create_database(&mut wtxn, Some("meta"))?;
 
@@ -59,25 +60,18 @@ impl Storage {
         })
     }
 
-    fn get_current_time(&self) -> f64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs_f64()
-    }
-
+    /// Save data in storage
     pub async fn put(&self, key: Vec<u8>, value: Vec<u8>, ttl: i32) -> Result<(), StorageError> {
         if !self.has_space(value.len()) {
             return Err(StorageError::StorageFull);
         }
 
-        let expires_at = self.get_current_time() + ttl as f64;
+        let expires_at = get_now_f64() + ttl as f64;
         let meta = MetaData {
             expires_at,
             size: value.len(),
         };
 
-        // Сериализация метаданных в msgpack
         let meta_bytes = serialize(&meta, "msgpack").map_err(|_| StorageError::General)?;
 
         let env = self.env.clone();
@@ -96,27 +90,25 @@ impl Storage {
         Ok(())
     }
 
+    /// Reading storage and checking TTL
     pub async fn get(&self, key: Vec<u8>) -> Result<Option<Vec<u8>>, StorageError> {
         let env = self.env.clone();
         let db = self.db;
         let meta_db = self.meta_db;
-        let current_time = self.get_current_time();
+        let current_time = get_now_f64();
 
-        // Мы должны клонировать ключ для использования в spawn_blocking
         let key_clone = key.clone();
 
         let result = task::spawn_blocking(move || {
             let txn = env.read_txn().unwrap();
 
-            // Проверка TTL
             if let Some(meta_bytes) = meta_db.get(&txn, &key_clone).unwrap() {
                 let meta: MetaData = deserialize(meta_bytes, "msgpack").unwrap();
                 if current_time > meta.expires_at {
-                    return Ok(None); // Сигнал, что истек TTL
+                    return Ok(None);
                 }
             }
 
-            // Получение значения
             let value = db.get(&txn, &key_clone).unwrap().map(|b| b.to_vec());
             Ok(value)
         })
@@ -124,8 +116,6 @@ impl Storage {
         .map_err(|_| StorageError::General)??;
 
         if result.is_none() {
-            // Если ключ просрочен (вернули None выше), удаляем его
-            // В Python это было внутри get, поэтому повторяем логику
             self.delete(key).await?;
             return Ok(None);
         }
@@ -150,10 +140,11 @@ impl Storage {
         Ok(())
     }
 
+    /// Set more time to life for data
     pub async fn extend_ttl(&self, key: Vec<u8>, extension: f64) -> Result<bool, StorageError> {
         let env = self.env.clone();
         let meta_db = self.meta_db;
-        let current_time = self.get_current_time();
+        let current_time = get_now_f64();
 
         task::spawn_blocking(move || {
             let mut txn = env.write_txn().unwrap();
@@ -177,23 +168,22 @@ impl Storage {
         .map_err(|_| StorageError::General)?
     }
 
+    /// For long support to check space
     fn has_space(&self, _size: usize) -> bool {
-        // Заглушка из оригинального кода
         true
     }
 
+    /// Delete unnecessary data
     pub async fn cleanup_expired(&self) -> Result<i32, StorageError> {
         let env = self.env.clone();
         let db = self.db;
         let meta_db = self.meta_db;
-        let current_time = self.get_current_time();
+        let current_time = get_now_f64();
 
         task::spawn_blocking(move || {
             let mut deleted_count = 0;
             let mut txn = env.write_txn().unwrap();
 
-            // В heed мы используем итераторы.
-            // Собираем ключи для удаления, чтобы не нарушать итератор
             let mut to_delete = Vec::new();
 
             {
@@ -221,8 +211,8 @@ impl Storage {
     }
 
     pub fn close(self) {
-        // В Rust Env закрывается автоматически, когда выходит из области видимости (Drop)
-        // Но для явности можно вызвать метод закрытия, если библиотека это поддерживает
-        // heed не требует явного закрытия, так как использует RAII
+        // In RUST Env close automatically, when leave from scope
+        // But we call this method for long support
+        // heed do not required close, because we use RAII
     }
 }

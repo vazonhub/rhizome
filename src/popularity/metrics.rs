@@ -1,39 +1,32 @@
+use crate::utils::time::get_now_f64;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{debug, info};
 
-/// Вспомогательная функция для получения текущего времени (Unix timestamp)
-fn get_now() -> f64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs_f64()
-}
-
+/// Collect metrics by check all manipulations with data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PopularityMetrics {
     pub key: Vec<u8>,
 
-    // Базовые метрики
+    /// Count of requests
     pub request_count: u64,
+    /// Count of requests by some period of time
     pub request_rate: f64,
+    /// How many replications does this content has
     pub replication_count: u32,
+    /// Evaluates how recent the data is
     pub freshness_score: f64,
+    /// Count of uniq nodes which requests this data
     pub audience_size: usize,
 
-    // Расширенные метрики
     pub social_engagements: u64,
     pub view_time: f64,
     pub seed_coverage: f64,
 
-    // Временные метки
     pub first_seen: f64,
     pub last_request: f64,
     pub created_at: Option<f64>,
 
-    // История запросов (не сериализуется напрямую в dict в Python,
-    // но нужна для расчетов. В Rust помечаем skip для serde, если нужно)
     #[serde(skip)]
     pub request_timestamps: VecDeque<f64>,
     #[serde(skip)]
@@ -42,7 +35,7 @@ pub struct PopularityMetrics {
 
 impl PopularityMetrics {
     pub fn new(key: Vec<u8>) -> Self {
-        let now = get_now();
+        let now = get_now_f64();
         Self {
             key,
             request_count: 0,
@@ -61,13 +54,12 @@ impl PopularityMetrics {
         }
     }
 
-    /// Обновление метрик при запросе
+    /// Register active action
     pub fn update_request(&mut self, node_id: Option<Vec<u8>>) {
-        let now = get_now();
+        let now = get_now_f64();
         self.request_count += 1;
         self.last_request = now;
 
-        // Эмуляция deque(maxlen=1000)
         if self.request_timestamps.len() >= 1000 {
             self.request_timestamps.pop_front();
         }
@@ -78,7 +70,6 @@ impl PopularityMetrics {
             self.audience_size = self.requesting_nodes.len();
         }
 
-        // Пересчет request_rate (запросов в час)
         let ts_len = self.request_timestamps.len();
         if ts_len > 1 {
             let first = *self.request_timestamps.front().unwrap();
@@ -95,13 +86,13 @@ impl PopularityMetrics {
         }
     }
 
-    /// Обновление метрики свежести
+    /// Update fresh metrics
     pub fn update_freshness(&mut self, age_seconds: Option<f64>) {
         let age = match age_seconds {
             Some(a) => a,
             None => {
                 let start_time = self.created_at.unwrap_or(self.first_seen);
-                get_now() - start_time
+                get_now_f64() - start_time
             }
         };
 
@@ -111,7 +102,6 @@ impl PopularityMetrics {
             self.freshness_score = 1.0 - (age / 86400.0) * 0.5;
         } else {
             let days = age / 86400.0;
-            // Math: 0.5 * (0.5 ^ (days / 7))
             let score = 0.5 * (0.5f64).powf(days / 7.0);
             self.freshness_score = score.max(0.1);
         }
@@ -125,15 +115,12 @@ impl PopularityMetrics {
         self.social_engagements += count;
     }
 
-    /// Аналог to_dict (использует serde_json::Value для гибкости)
     pub fn to_dict(&self) -> serde_json::Value {
         serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
     }
 
-    /// Аналог from_dict
     pub fn from_dict(data: serde_json::Value) -> Result<Self, serde_json::Error> {
         let mut metrics: Self = serde_json::from_value(data)?;
-        // Инициализируем пустые коллекции, так как они не сериализованы
         metrics.request_timestamps = VecDeque::with_capacity(1000);
         metrics.requesting_nodes = HashSet::new();
         Ok(metrics)
@@ -215,7 +202,7 @@ impl MetricsCollector {
     }
 
     pub fn cleanup_old_metrics(&mut self, max_age_days: u64) {
-        let now = get_now();
+        let now = get_now_f64();
         let max_age = max_age_days as f64 * 86400.0;
 
         let initial_len = self.metrics.len();

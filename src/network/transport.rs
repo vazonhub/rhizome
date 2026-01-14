@@ -1,12 +1,12 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::net::UdpSocket;
 use tokio::sync::{Mutex, oneshot};
 use tracing::{error, info};
 
 use crate::exceptions::{NetworkError, RhizomeError};
+use crate::utils::time::get_now_f64;
 
 /// Raw Message
 ///
@@ -95,10 +95,7 @@ impl UDPTransport {
                         match result {
                             Ok((size, addr)) => {
                                 let data = buf[..size].to_vec();
-                                let timestamp = SystemTime::now()
-                                    .duration_since(UNIX_EPOCH)
-                                    .unwrap_or_default()
-                                    .as_secs_f64();
+                                let timestamp = get_now_f64();
 
                                 let msg = Message { data, address: addr, timestamp };
                                 let h = handler.clone();

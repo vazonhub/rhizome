@@ -1,91 +1,92 @@
-use crate::utils::crypto::hash_key; // Предполагаем, что функция hash_key находится в модуле crypto
+use crate::utils::crypto::hash_key;
 
-/// Построитель ключей для DHT
+/// DHT key builder
 pub struct DHTKeyBuilder;
 
 #[allow(dead_code)]
 impl DHTKeyBuilder {
-    /// Ключ для списка всех тредов
+    /// Key for list of all threads
     pub fn global_threads() -> [u8; 32] {
         hash_key("global:threads".as_bytes())
     }
 
-    /// Ключ для топ-N популярных тредов
+    /// Key for N-top popular themes
     pub fn global_popular() -> [u8; 32] {
         hash_key("global:popular".as_bytes())
     }
 
-    /// Ключ для последних N сообщений
+    /// Key for last N messages
     pub fn global_recent() -> [u8; 32] {
         hash_key("global:recent".as_bytes())
     }
 
-    /// Ключ для списка активных seed-узлов
+    /// Key for list active seed-nodes
     pub fn global_seeds() -> [u8; 32] {
         hash_key("global:seeds".as_bytes())
     }
 
-    /// Ключ для метаданных треда
+    /// Key for thread metadata
     pub fn thread_meta(thread_id: &str) -> [u8; 32] {
         hash_key(format!("thread:{}:meta", thread_id).as_bytes())
     }
 
-    /// Ключ для хронологического списка сообщений треда
+    /// Key for chronological list of thread messages
     pub fn thread_index(thread_id: &str) -> [u8; 32] {
         hash_key(format!("thread:{}:index", thread_id).as_bytes())
     }
 
-    /// Ключ для популярных сообщений в треде
+    /// Key for popular messages in thread
     pub fn thread_popular(thread_id: &str) -> [u8; 32] {
         hash_key(format!("thread:{}:popular", thread_id).as_bytes())
     }
 
-    /// Ключ для статистики треда
+    /// Key for thread statistic
     pub fn thread_stats(thread_id: &str) -> [u8; 32] {
         hash_key(format!("thread:{}:stats", thread_id).as_bytes())
     }
 
-    /// Ключ для сообщения
+    /// Key for message
     pub fn message(message_hash: &str) -> [u8; 32] {
         hash_key(format!("msg:{}", message_hash).as_bytes())
     }
 
-    /// Ключ для ссылок на ответы/цитаты сообщения
+    /// Key for links ot the reply on message
     pub fn message_refs(message_hash: &str) -> [u8; 32] {
         hash_key(format!("msg:{}:refs", message_hash).as_bytes())
     }
 
-    /// Ключ для голосов/реакций к сообщению
+    /// Key for reactions on message
     pub fn message_votes(message_hash: &str) -> [u8; 32] {
         hash_key(format!("msg:{}:votes", message_hash).as_bytes())
     }
 
-    /// Ключ для профиля пользователя
+    /// Key for user profile
     pub fn user_profile(pubkey: &str) -> [u8; 32] {
         hash_key(format!("user:{}:profile", pubkey).as_bytes())
     }
 
-    /// Ключ для тредов пользователя
+    /// Key for user thread
     pub fn user_threads(pubkey: &str) -> [u8; 32] {
         hash_key(format!("user:{}:threads", pubkey).as_bytes())
     }
 
-    /// Ключ для репутации пользователя
+    /// Key for user reputation
     pub fn user_reputation(pubkey: &str) -> [u8; 32] {
         hash_key(format!("user:{}:reputation", pubkey).as_bytes())
     }
 
-    /// Парсинг ключа для определения его типа
+    /// TODO: Parsing of the key for finding type
     pub fn parse_key(_key: &[u8]) -> Option<std::collections::HashMap<String, String>> {
-        // В оригинале упрощенная версия возвращает None
         None
     }
 }
 
-/// Менеджер для работы с ключами DHT
+/// Manager for work with keys
+///
+/// It is template for work with builder
 pub struct KeyManager {
-    // В Rust нам не обязательно хранить инстанс билдера,
-    // если методы статические, но для сохранения структуры Python-кода:
+    // In Rust, we don't need to save builder instance
+    // if methods are static
 }
 
 impl Default for KeyManager {
@@ -99,22 +100,22 @@ impl KeyManager {
         Self {}
     }
 
-    /// Получение ключа для метаданных треда
+    /// Get key for thread metadata
     pub fn get_thread_meta_key(&self, thread_id: &str) -> [u8; 32] {
         DHTKeyBuilder::thread_meta(thread_id)
     }
 
-    /// Получение ключа для сообщения
+    /// Get Key for message
     pub fn get_message_key(&self, message_hash: &str) -> [u8; 32] {
         DHTKeyBuilder::message(message_hash)
     }
 
-    /// Получение ключа для глобального списка тредов
+    /// Get key for global list of threads
     pub fn get_global_threads_key(&self) -> [u8; 32] {
         DHTKeyBuilder::global_threads()
     }
 
-    /// Получение ключа для популярных тредов
+    /// Get key for popular threads
     pub fn get_global_popular_key(&self) -> [u8; 32] {
         DHTKeyBuilder::global_popular()
     }
