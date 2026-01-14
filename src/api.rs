@@ -28,6 +28,7 @@ pub mod node;
 pub mod popularity;
 pub mod replication;
 pub mod security;
+/// Local storage in node for fast data choosing
 pub mod storage;
 /// Some help functional for work with serialization and crypto
 pub mod utils;
