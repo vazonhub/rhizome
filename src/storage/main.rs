@@ -102,7 +102,6 @@ impl Storage {
         let result = task::spawn_blocking(move || {
             let txn = env.read_txn().unwrap();
 
-            // Проверка TTL
             if let Some(meta_bytes) = meta_db.get(&txn, &key_clone).unwrap() {
                 let meta: MetaData = deserialize(meta_bytes, "msgpack").unwrap();
                 if current_time > meta.expires_at {

@@ -94,7 +94,7 @@ impl BaseNode {
         if config.node.auto_detect_type
             && let Some(detected) = Self::detect_node_type(&config)
         {
-            config.node.node_type = detected.to_string(); // Обновляем строку в конфиге
+            config.node.node_type = detected.to_string();
         }
 
         let node_type = match config.node.node_type.as_str() {
@@ -252,10 +252,8 @@ impl BaseNode {
         info!("Stopping node");
         *running = false;
 
-        // Остановка сетевого протокола
         self.network_protocol.clone().stop().await;
 
-        // Сохранение состояния в файл
         if let Err(e) = self.save_state().await {
             error!(error = %e, "Failed to save node state during stop");
         }
@@ -379,7 +377,6 @@ impl BaseNode {
     /// Main loop which work on background side and cleanup storage by TTL
     async fn background_loop(node: Arc<BaseNodePtrs>) {
         while *node.is_running.read().await {
-            // Очистка старых данных в хранилище
             if let Ok(deleted) = node.storage.cleanup_expired().await
                 && deleted > 0
             {

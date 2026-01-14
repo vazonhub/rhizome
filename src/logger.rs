@@ -32,27 +32,20 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 /// * The global subscriber has already been initialized by another part of the code.
 #[allow(dead_code)]
 pub fn setup_logging(log_level: &str, log_file: Option<PathBuf>, node_id: Option<&str>) {
-    // Attempt to parse filter from RUST_LOG env var; fallback to the provided log_level
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level));
 
-    // Configure timestamp format to RFC 3339 (Local time)
     let timer = fmt::time::ChronoLocal::rfc_3339();
 
     if let Some(path) = log_file {
-        // Configure JSON file logging
         let file = File::create(path).expect("Failed to create log file");
 
-        let layer = fmt::layer()
-            .with_timer(timer)
-            .json() // Enable structured JSON output for machine parsing
-            .with_writer(file);
+        let layer = fmt::layer().with_timer(timer).json().with_writer(file);
 
         tracing_subscriber::registry()
             .with(filter)
             .with(layer)
             .init();
     } else {
-        // Configure human-readable console logging
         let layer = fmt::layer().with_timer(timer).with_writer(std::io::stdout);
 
         tracing_subscriber::registry()
@@ -61,7 +54,6 @@ pub fn setup_logging(log_level: &str, log_file: Option<PathBuf>, node_id: Option
             .init();
     }
 
-    // Log the initialization event with an optional truncated Node ID
     if let Some(id) = node_id {
         let truncated_id = if id.len() > 16 { &id[..16] } else { id };
 

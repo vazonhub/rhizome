@@ -212,7 +212,6 @@ impl PopularityExchanger {
 
         let final_top = consensus_ranking.clone();
 
-        // Обновляем состояние
         *self.global_ranking.write().await = consensus_ranking;
         *self.global_ranking_updated.write().await = get_now_f64();
 

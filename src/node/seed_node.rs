@@ -70,8 +70,7 @@ impl SeedNode {
         let mut seed_nodes = Vec::new();
         let all_nodes = node.routing_table.read().await.get_all_nodes();
 
-        // TODO: фильтруем тех, кто похож на seed
-        // (Например, по метаданным или отдельному бакету)
+        // TODO: filter node like seed by metadata or other bucket
         for n in all_nodes {
             seed_nodes.push(n);
         }

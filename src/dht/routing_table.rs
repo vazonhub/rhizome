@@ -105,7 +105,6 @@ impl RoutingTable {
 
         let bucket_index = self.get_bucket_index(&node.node_id);
 
-        // Проверяем, полон ли бакет
         if self.buckets[bucket_index].is_full() {
             let stale_index = self.buckets[bucket_index]
                 .nodes
@@ -133,19 +132,16 @@ impl RoutingTable {
         let bucket_index = self.get_bucket_index(target_id);
         let mut closest_nodes: Vec<Node> = Vec::new();
 
-        // Собираем узлы, начиная с целевого бакета и расширяя область
         for offset in 0..self.buckets.len() {
             let idx = (bucket_index + offset) % self.buckets.len();
             let nodes = self.buckets[idx].get_nodes();
             closest_nodes.extend(nodes);
 
             if closest_nodes.len() >= count * 2 {
-                // Берем с запасом для точной сортировки
                 break;
             }
         }
 
-        // Сортируем по XOR расстоянию
         closest_nodes.sort_by_key(|n| n.node_id.distance_to(target_id));
 
         if closest_nodes.len() > count {

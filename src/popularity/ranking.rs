@@ -26,7 +26,6 @@ impl PopularityRanker {
 
     /// Calculate ranking of popularity
     pub fn calculate_score(&self, metrics: &PopularityMetrics, adaptive_weights: bool) -> f64 {
-        // Базовые веса
         let w_request_rate = 0.25;
         let w_replication_factor = 0.20;
         let mut w_freshness = 0.15;

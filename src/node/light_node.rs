@@ -4,7 +4,6 @@ use std::ops::Deref;
 
 /// Light-node systems with limited resources
 pub struct LightNode {
-    // Композиция вместо наследования
     pub base: BaseNode,
 }
 
@@ -16,7 +15,7 @@ impl LightNode {
     pub async fn new(mut config: Config) -> Result<Self, Box<dyn std::error::Error>> {
         config.node.node_type = "light".to_string();
 
-        let max_light_bytes: u64 = 1024 * 1024 * 1024; // 1 GB
+        let max_light_bytes: u64 = 1024 * 1024 * 1024;
         if config.storage.max_storage_size > max_light_bytes {
             config.storage.max_storage_size = max_light_bytes;
         }

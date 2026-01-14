@@ -4,7 +4,6 @@ use std::ops::Deref;
 
 /// Full-node for main work load
 pub struct FullNode {
-    // Используем композицию вместо наследования
     pub base: BaseNode,
 }
 

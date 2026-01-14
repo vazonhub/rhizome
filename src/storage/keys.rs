@@ -75,9 +75,8 @@ impl DHTKeyBuilder {
         hash_key(format!("user:{}:reputation", pubkey).as_bytes())
     }
 
-    /// Parsing of the key for finding type
+    /// TODO: Parsing of the key for finding type
     pub fn parse_key(_key: &[u8]) -> Option<std::collections::HashMap<String, String>> {
-        // В оригинале упрощенная версия возвращает None
         None
     }
 }

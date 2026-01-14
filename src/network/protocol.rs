@@ -156,7 +156,6 @@ impl NetworkProtocol {
                 if let Some(rt_link) = &self.routing_table
                     && let Some(id_val) = payload.get("node_id").and_then(|v| v.as_array())
                 {
-                    // Обновляем таблицу маршрутизации
                     let mut id_bytes = [0u8; 20];
                     for (i, v) in id_val.iter().enumerate().take(20) {
                         id_bytes[i] = v.as_u64().unwrap_or(0) as u8;
@@ -181,7 +180,6 @@ impl NetworkProtocol {
                 if let (Some(rt_link), Some(target_val)) =
                     (&self.routing_table, payload.get("target_id"))
                 {
-                    // Парсинг TargetID и поиск ближайших
                     let mut id_bytes = [0u8; 20];
                     if let Some(arr) = target_val.as_array() {
                         for (i, v) in arr.iter().enumerate().take(20) {
@@ -228,7 +226,6 @@ impl NetworkProtocol {
                         )
                         .await?;
                     } else if let Some(rt_link) = &self.routing_table {
-                        // Возвращаем ближайшие узлы, если значение не найдено
                         let mut id_bytes = [0u8; 20];
                         let len = key_bytes.len().min(20);
                         id_bytes[..len].copy_from_slice(&key_bytes[..len]);
@@ -273,7 +270,6 @@ impl NetworkProtocol {
                 let exchanger_lock = self.popularity_exchanger.read().await;
                 if let Some(exchanger) = exchanger_lock.as_ref() {
                     if let Some(local_metrics) = exchanger.get_local_metrics().await {
-                        // Ранжируем
                         let ranked = exchanger.ranker.rank_items(&local_metrics, Some(100));
                         let items: Vec<serde_json::Value> = ranked
                             .iter()
@@ -295,7 +291,6 @@ impl NetworkProtocol {
                         .await?;
                     }
 
-                    // Обрабатываем полученные данные
                     if let Some(received_items) = payload.get("items").and_then(|v| v.as_array()) {
                         exchanger
                             .process_received_items(received_items.clone())

@@ -63,7 +63,7 @@ impl RateLimiter {
             let node_recent = node_history.len();
 
             if node_recent >= self.per_node_limit {
-                let hex_id = hex::encode(&id[..id.len().min(8)]); // Первые 16 символов hex (8 байт)
+                let hex_id = hex::encode(&id[..id.len().min(8)]);
                 warn!(
                     node_id = %hex_id,
                     requests = node_recent,
@@ -85,7 +85,6 @@ impl RateLimiter {
     fn cleanup_old_requests(&mut self, current_time: f64) {
         let window = self.window_seconds as f64;
 
-        // Очищаем общую историю
         while let Some(&first_ts) = self.request_history.front() {
             if current_time - first_ts > window {
                 self.request_history.pop_front();

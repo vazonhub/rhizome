@@ -41,7 +41,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::time::{Duration, sleep};
 
-// Импортируем все компоненты, созданные ранее
 use crate::config::Config;
 use crate::node::full_node::FullNode;
 use crate::storage::data_types::{Message, ThreadMetadata};
@@ -58,7 +57,6 @@ pub struct RhizomeClient {
 }
 
 impl RhizomeClient {
-    /// Инициализация клиента
     pub fn new(config_path: Option<String>, config: Option<Config>) -> Self {
         let final_config = if let Some(c) = config {
             c
@@ -69,7 +67,7 @@ impl RhizomeClient {
             if default_path.exists() {
                 Config::from_file(Some(default_path))
             } else {
-                Config::from_file(None) // Значения по умолчанию
+                Config::from_file(None)
             }
         };
 
@@ -81,7 +79,6 @@ impl RhizomeClient {
         }
     }
 
-    /// Запуск узла и подключение к сети
     pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if self.is_running {
             return Err("Node is already running".into());
@@ -95,12 +92,10 @@ impl RhizomeClient {
         self.node = Some(node_arc);
         self.is_running = true;
 
-        // Даем время на инициализацию (bootstrap)
         sleep(Duration::from_secs(1)).await;
         Ok(())
     }
 
-    /// Остановка узла
     pub async fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(node) = self.node.take()
             && self.is_running
@@ -112,7 +107,6 @@ impl RhizomeClient {
         Ok(())
     }
 
-    /// Создание нового треда
     pub async fn create_thread(
         &self,
         thread_id: &str,
@@ -153,7 +147,6 @@ impl RhizomeClient {
         Ok(thread_meta)
     }
 
-    /// Поиск треда по ID
     pub async fn find_thread(
         &self,
         thread_id: &str,
@@ -170,18 +163,16 @@ impl RhizomeClient {
         }
     }
 
-    /// Обновление метаданных треда
     pub async fn update_thread(
         &self,
         thread_id: &str,
-        updates: Value, // Используем JSON для динамических обновлений
+        updates: Value,
     ) -> Result<Option<ThreadMetadata>, Box<dyn std::error::Error>> {
         let mut thread_meta = match self.find_thread(thread_id).await? {
             Some(m) => m,
             None => return Ok(None),
         };
 
-        // Применяем обновления из JSON (аналог hasattr/setattr)
         if let Some(count) = updates.get("message_count").and_then(|v| v.as_i64()) {
             thread_meta.message_count = count as i32;
         }
@@ -203,7 +194,6 @@ impl RhizomeClient {
         Ok(Some(thread_meta))
     }
 
-    /// Добавление сообщения в тред
     pub async fn add_message(
         &self,
         thread_id: &str,
@@ -249,7 +239,6 @@ impl RhizomeClient {
             return Err("Failed to store message".into());
         }
 
-        // Обновляем метаданные треда
         let updates = serde_json::json!({
             "message_count": thread_meta.message_count + 1,
             "last_activity": timestamp
@@ -259,7 +248,6 @@ impl RhizomeClient {
         Ok(message)
     }
 
-    /// Получение списка популярных тредов
     pub async fn get_popular_threads(
         &self,
         limit: usize,
@@ -289,15 +277,12 @@ impl RhizomeClient {
             .collect())
     }
 
-    /// Поиск тредов (фильтрация)
     pub async fn search_threads(
         &self,
         _query: Option<&str>,
         category: Option<&str>,
         tags: Option<Vec<&str>>,
     ) -> Result<Vec<ThreadMetadata>, Box<dyn std::error::Error>> {
-        // В оригинале: берем список ID из глобального индекса
-        // Здесь мы имитируем эту логику
         let threads_key = self.key_manager.get_global_threads_key();
         let node = self.node.as_ref().ok_or("Node not running")?;
 

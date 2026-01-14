@@ -71,7 +71,6 @@ impl ThreadMetadata {
     /// Return Thread metadata from JSON in Rust object
     pub fn from_dict(data: Value) -> Result<Self, serde_json::Error> {
         let mut meta: Self = serde_json::from_value(data)?;
-        // Эмуляция __post_init__ при загрузке данных
         if meta.last_activity == 0 {
             meta.last_activity = meta.created_at;
         }
@@ -126,7 +125,7 @@ impl Message {
             parent_id: None,
             content: String::new(),
             author_signature: None,
-            timestamp: now, // Логика __post_init__
+            timestamp: now,
             content_type: default_content_type(),
             attachments: Vec::new(),
             metadata: default_empty_map(),
