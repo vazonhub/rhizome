@@ -25,6 +25,7 @@ pub mod dht;
 pub mod network;
 /// Module for work with nodes: types of nodes and their main functions
 pub mod node;
+/// Module for work with exchange of popular data and analyze metrics for this data
 pub mod popularity;
 /// Need for data copying to other nodes in network
 pub mod replication;
