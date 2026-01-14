@@ -32,7 +32,7 @@ tokio = { version = "1.0", features = ["full"] }
 rand = "0.8"
 fs2 = "0.4"
 hex = "0.4.3"
-rsa = { version = "0.9", features = ["sha2"] }
+rsa = { version = "0.9.10", features = ["sha2"] }
 sha1 = "0.10"
 sha2 = "0.10"
 
