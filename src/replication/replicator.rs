@@ -129,7 +129,6 @@ impl Replicator {
 
             match self.storage.get(key.clone()).await {
                 Ok(Some(value)) => {
-                    // Выполняем STORE для обеспечения наличия данных (TTL 1 день)
                     match self.dht_protocol.store(&key, &value, 86400).await {
                         Ok(success) => results.insert(key, success),
                         Err(_) => results.insert(key, false),

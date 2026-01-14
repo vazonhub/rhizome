@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 use tokio::sync::{Mutex, RwLock, oneshot};
 use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
@@ -18,6 +18,7 @@ use crate::network::transport::{Message, UDPTransport};
 use crate::popularity::exchanger::PopularityExchanger;
 use crate::security::rate_limiter::RateLimiter;
 use crate::storage::main::Storage;
+use crate::utils::time::get_now_f64;
 
 /// Message structure
 #[derive(Serialize, Deserialize, Debug)]
@@ -155,7 +156,6 @@ impl NetworkProtocol {
                 if let Some(rt_link) = &self.routing_table
                     && let Some(id_val) = payload.get("node_id").and_then(|v| v.as_array())
                 {
-                    // Обновляем таблицу маршрутизации
                     let mut id_bytes = [0u8; 20];
                     for (i, v) in id_val.iter().enumerate().take(20) {
                         id_bytes[i] = v.as_u64().unwrap_or(0) as u8;
@@ -180,7 +180,6 @@ impl NetworkProtocol {
                 if let (Some(rt_link), Some(target_val)) =
                     (&self.routing_table, payload.get("target_id"))
                 {
-                    // Парсинг TargetID и поиск ближайших
                     let mut id_bytes = [0u8; 20];
                     if let Some(arr) = target_val.as_array() {
                         for (i, v) in arr.iter().enumerate().take(20) {
@@ -227,7 +226,6 @@ impl NetworkProtocol {
                         )
                         .await?;
                     } else if let Some(rt_link) = &self.routing_table {
-                        // Возвращаем ближайшие узлы, если значение не найдено
                         let mut id_bytes = [0u8; 20];
                         let len = key_bytes.len().min(20);
                         id_bytes[..len].copy_from_slice(&key_bytes[..len]);
@@ -272,7 +270,6 @@ impl NetworkProtocol {
                 let exchanger_lock = self.popularity_exchanger.read().await;
                 if let Some(exchanger) = exchanger_lock.as_ref() {
                     if let Some(local_metrics) = exchanger.get_local_metrics().await {
-                        // Ранжируем
                         let ranked = exchanger.ranker.rank_items(&local_metrics, Some(100));
                         let items: Vec<serde_json::Value> = ranked
                             .iter()
@@ -294,7 +291,6 @@ impl NetworkProtocol {
                         .await?;
                     }
 
-                    // Обрабатываем полученные данные
                     if let Some(received_items) = payload.get("items").and_then(|v| v.as_array()) {
                         exchanger
                             .process_received_items(received_items.clone())
@@ -345,12 +341,42 @@ impl NetworkProtocol {
             id: msg_id,
             node_id: self.node_id.0,
             payload,
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs_f64(),
+            timestamp: get_now_f64(),
         };
         rmp_serde::to_vec(&msg).map_err(|_| RhizomeError::Network(NetworkError::General))
+    }
+
+    /// Get global ranking
+    pub async fn get_global_ranking_remote(
+        &self,
+        node: &Node,
+    ) -> Result<Vec<serde_json::Value>, RhizomeError> {
+        let msg_id = self.generate_msg_id();
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.pending_requests.lock().await.insert(msg_id, tx);
+
+        let addr: std::net::SocketAddr = format!("{}:{}", node.address, node.port).parse().unwrap();
+
+        let payload = serde_json::json!({});
+        let data = self.pack_message(MSG_GLOBAL_RANKING_REQUEST, msg_id, payload)?;
+        self.transport.send(&data, addr).await?;
+
+        match tokio::time::timeout(self.request_timeout, rx).await {
+            Ok(Ok((msg_type, response_payload))) => {
+                if msg_type == MSG_GLOBAL_RANKING_RESPONSE {
+                    return Ok(response_payload["ranking"]
+                        .as_array()
+                        .cloned()
+                        .unwrap_or_default());
+                }
+                Err(RhizomeError::Network(NetworkError::General))
+            }
+            _ => {
+                self.pending_requests.lock().await.remove(&msg_id);
+                Err(RhizomeError::Network(NetworkError::General))
+            }
+        }
     }
 
     /// Generate uniq message id

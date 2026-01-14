@@ -4,7 +4,6 @@ use std::ops::Deref;
 
 /// Mobile-node for mobile device
 pub struct MobileNode {
-    // Используем композицию
     pub base: BaseNode,
 }
 

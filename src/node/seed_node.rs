@@ -1,11 +1,12 @@
 use std::ops::Deref;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 use tokio::time::sleep;
 use tracing::{error, info};
 
 use crate::config::Config;
 use crate::node::base_node::{BaseNode, BaseNodePtrs};
+use crate::utils::time::get_now_f64;
 
 /// Seed-node for work with popularity
 pub struct SeedNode {
@@ -40,10 +41,7 @@ impl SeedNode {
         let mut last_global_update = 0.0;
 
         while *node.is_running.read().await {
-            let current_time = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs_f64();
+            let current_time = get_now_f64();
 
             if current_time - last_global_update >= global_update_interval {
                 if let Err(e) = Self::update_global_ranking(&node).await {
@@ -72,8 +70,7 @@ impl SeedNode {
         let mut seed_nodes = Vec::new();
         let all_nodes = node.routing_table.read().await.get_all_nodes();
 
-        // TODO: фильтруем тех, кто похож на seed
-        // (Например, по метаданным или отдельному бакету)
+        // TODO: filter node like seed by metadata or other bucket
         for n in all_nodes {
             seed_nodes.push(n);
         }

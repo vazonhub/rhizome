@@ -2,7 +2,7 @@ use rand::Rng;
 use std::fmt;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
@@ -19,6 +19,7 @@ use crate::popularity::ranking::PopularityRanker;
 use crate::replication::replicator::Replicator;
 use crate::storage::main::Storage;
 use crate::utils::crypto::{generate_node_id, load_node_id, save_node_id};
+use crate::utils::time::get_now_f64;
 
 /// Enum of the nodes for computer resources
 ///
@@ -93,7 +94,7 @@ impl BaseNode {
         if config.node.auto_detect_type
             && let Some(detected) = Self::detect_node_type(&config)
         {
-            config.node.node_type = detected.to_string(); // Обновляем строку в конфиге
+            config.node.node_type = detected.to_string();
         }
 
         let node_type = match config.node.node_type.as_str() {
@@ -221,7 +222,7 @@ impl BaseNode {
         info!(node_id = %hex::encode(&self.node_id.0[..8]), "Starting node");
 
         *running = true;
-        *self.start_time.write().await = Some(Self::get_now());
+        *self.start_time.write().await = Some(get_now_f64());
 
         let net = self.network_protocol.clone();
         net.start().await?;
@@ -251,10 +252,8 @@ impl BaseNode {
         info!("Stopping node");
         *running = false;
 
-        // Остановка сетевого протокола
         self.network_protocol.clone().stop().await;
 
-        // Сохранение состояния в файл
         if let Err(e) = self.save_state().await {
             error!(error = %e, "Failed to save node state during stop");
         }
@@ -378,7 +377,6 @@ impl BaseNode {
     /// Main loop which work on background side and cleanup storage by TTL
     async fn background_loop(node: Arc<BaseNodePtrs>) {
         while *node.is_running.read().await {
-            // Очистка старых данных в хранилище
             if let Ok(deleted) = node.storage.cleanup_expired().await
                 && deleted > 0
             {
@@ -390,7 +388,7 @@ impl BaseNode {
 
             {
                 let rt = node.routing_table.read().await;
-                let now = Self::get_now();
+                let now = get_now_f64();
                 for (i, bucket) in rt.buckets.iter().enumerate() {
                     if !bucket.nodes.is_empty() && (now - bucket.last_updated) > refresh_interval {
                         buckets_to_refresh.push(i);
@@ -414,7 +412,7 @@ impl BaseNode {
         let mut last_exchange = 0.0;
 
         while *node.is_running.read().await {
-            let now = Self::get_now();
+            let now = get_now_f64();
 
             if now - last_update >= node.config.popularity.update_interval as f64 {
                 let metrics = node
@@ -504,13 +502,6 @@ impl BaseNode {
             .await
             .record_store(key.to_vec(), replication_count);
         Ok(success)
-    }
-
-    fn get_now() -> f64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs_f64()
     }
 
     /// Method for copy packet references

@@ -20,7 +20,6 @@ pub fn generate_node_id() -> [u8; 20] {
         .to_public_key_der()
         .expect("failed to encode public key");
 
-    // Используем SHA-1 для получения 160-битного ID (20 байт)
     let mut hasher = Sha1::new();
     hasher.update(public_key_der.as_bytes());
     let result = hasher.finalize();

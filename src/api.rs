@@ -25,6 +25,7 @@ pub mod dht;
 pub mod network;
 /// Module for work with nodes: types of nodes and their main functions
 pub mod node;
+/// Module for work with exchange of popular data and analyze metrics for this data
 pub mod popularity;
 /// Need for data copying to other nodes in network
 pub mod replication;
@@ -38,17 +39,17 @@ pub mod utils;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::{Duration, sleep};
 
-// Импортируем все компоненты, созданные ранее
 use crate::config::Config;
 use crate::node::full_node::FullNode;
 use crate::storage::data_types::{Message, ThreadMetadata};
 use crate::storage::keys::KeyManager;
 use crate::utils::crypto::hash_key;
 use crate::utils::serialization::{deserialize, serialize};
+use crate::utils::time::get_now_i64;
 
+/// API client for work with protocol
 pub struct RhizomeClient {
     pub config: Config,
     pub node: Option<Arc<FullNode>>,
@@ -57,7 +58,6 @@ pub struct RhizomeClient {
 }
 
 impl RhizomeClient {
-    /// Инициализация клиента
     pub fn new(config_path: Option<String>, config: Option<Config>) -> Self {
         let final_config = if let Some(c) = config {
             c
@@ -68,7 +68,7 @@ impl RhizomeClient {
             if default_path.exists() {
                 Config::from_file(Some(default_path))
             } else {
-                Config::from_file(None) // Значения по умолчанию
+                Config::from_file(None)
             }
         };
 
@@ -80,7 +80,6 @@ impl RhizomeClient {
         }
     }
 
-    /// Запуск узла и подключение к сети
     pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if self.is_running {
             return Err("Node is already running".into());
@@ -94,12 +93,10 @@ impl RhizomeClient {
         self.node = Some(node_arc);
         self.is_running = true;
 
-        // Даем время на инициализацию (bootstrap)
         sleep(Duration::from_secs(1)).await;
         Ok(())
     }
 
-    /// Остановка узла
     pub async fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(node) = self.node.take()
             && self.is_running
@@ -111,14 +108,6 @@ impl RhizomeClient {
         Ok(())
     }
 
-    fn get_now() -> i64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64
-    }
-
-    /// Создание нового треда
     pub async fn create_thread(
         &self,
         thread_id: &str,
@@ -136,12 +125,12 @@ impl RhizomeClient {
         let thread_meta = ThreadMetadata {
             id: thread_id.to_string(),
             title: title.to_string(),
-            created_at: Self::get_now(),
+            created_at: get_now_i64(),
             creator_pubkey: creator,
             category,
             tags: tags.unwrap_or_default(),
             message_count: 0,
-            last_activity: Self::get_now(),
+            last_activity: get_now_i64(),
             popularity_score: 0.0,
             encryption_type: "public".to_string(),
             access_control: None,
@@ -159,7 +148,6 @@ impl RhizomeClient {
         Ok(thread_meta)
     }
 
-    /// Поиск треда по ID
     pub async fn find_thread(
         &self,
         thread_id: &str,
@@ -176,18 +164,16 @@ impl RhizomeClient {
         }
     }
 
-    /// Обновление метаданных треда
     pub async fn update_thread(
         &self,
         thread_id: &str,
-        updates: Value, // Используем JSON для динамических обновлений
+        updates: Value,
     ) -> Result<Option<ThreadMetadata>, Box<dyn std::error::Error>> {
         let mut thread_meta = match self.find_thread(thread_id).await? {
             Some(m) => m,
             None => return Ok(None),
         };
 
-        // Применяем обновления из JSON (аналог hasattr/setattr)
         if let Some(count) = updates.get("message_count").and_then(|v| v.as_i64()) {
             thread_meta.message_count = count as i32;
         }
@@ -198,7 +184,7 @@ impl RhizomeClient {
         thread_meta.last_activity = updates
             .get("last_activity")
             .and_then(|v| v.as_i64())
-            .unwrap_or_else(Self::get_now);
+            .unwrap_or_else(get_now_i64);
 
         let node = self.node.as_ref().unwrap();
         let meta_key = self.key_manager.get_thread_meta_key(thread_id);
@@ -209,7 +195,6 @@ impl RhizomeClient {
         Ok(Some(thread_meta))
     }
 
-    /// Добавление сообщения в тред
     pub async fn add_message(
         &self,
         thread_id: &str,
@@ -226,7 +211,7 @@ impl RhizomeClient {
             .await?
             .ok_or_else(|| format!("Thread not found: {}", thread_id))?;
 
-        let timestamp = Self::get_now();
+        let timestamp = get_now_i64();
         let message_id = format!("msg_{}_{}", thread_id, timestamp);
 
         let signature = author_signature.unwrap_or_else(|| {
@@ -255,7 +240,6 @@ impl RhizomeClient {
             return Err("Failed to store message".into());
         }
 
-        // Обновляем метаданные треда
         let updates = serde_json::json!({
             "message_count": thread_meta.message_count + 1,
             "last_activity": timestamp
@@ -265,7 +249,6 @@ impl RhizomeClient {
         Ok(message)
     }
 
-    /// Получение списка популярных тредов
     pub async fn get_popular_threads(
         &self,
         limit: usize,
@@ -295,15 +278,12 @@ impl RhizomeClient {
             .collect())
     }
 
-    /// Поиск тредов (фильтрация)
     pub async fn search_threads(
         &self,
         _query: Option<&str>,
         category: Option<&str>,
         tags: Option<Vec<&str>>,
     ) -> Result<Vec<ThreadMetadata>, Box<dyn std::error::Error>> {
-        // В оригинале: берем список ID из глобального индекса
-        // Здесь мы имитируем эту логику
         let threads_key = self.key_manager.get_global_threads_key();
         let node = self.node.as_ref().ok_or("Node not running")?;
 

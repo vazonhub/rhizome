@@ -1,14 +1,6 @@
 use crate::config::d_bucket_timeout;
 use crate::dht::node::{Node, NodeID};
-use std::time::{SystemTime, UNIX_EPOCH};
-
-/// Return current time in seconds
-fn get_now() -> f64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs_f64()
-}
+use crate::utils::time::get_now_f64;
 
 /// K-Buckets for saving nodes with their distance
 pub struct KBucket {
@@ -25,7 +17,7 @@ impl KBucket {
         Self {
             k,
             nodes: Vec::with_capacity(k),
-            last_updated: get_now(),
+            last_updated: get_now_f64(),
         }
     }
 
@@ -34,13 +26,13 @@ impl KBucket {
         if let Some(index) = self.nodes.iter().position(|n| n.node_id == node.node_id) {
             self.nodes.remove(index);
             self.nodes.push(node);
-            self.last_updated = get_now();
+            self.last_updated = get_now_f64();
             return true;
         }
 
         if self.nodes.len() < self.k {
             self.nodes.push(node);
-            self.last_updated = get_now();
+            self.last_updated = get_now_f64();
             return true;
         }
 
@@ -51,7 +43,7 @@ impl KBucket {
     pub fn remove_node(&mut self, node_id: &NodeID) {
         if let Some(index) = self.nodes.iter().position(|n| &n.node_id == node_id) {
             self.nodes.remove(index);
-            self.last_updated = get_now();
+            self.last_updated = get_now_f64();
         }
     }
 
@@ -113,7 +105,6 @@ impl RoutingTable {
 
         let bucket_index = self.get_bucket_index(&node.node_id);
 
-        // Проверяем, полон ли бакет
         if self.buckets[bucket_index].is_full() {
             let stale_index = self.buckets[bucket_index]
                 .nodes
@@ -141,19 +132,16 @@ impl RoutingTable {
         let bucket_index = self.get_bucket_index(target_id);
         let mut closest_nodes: Vec<Node> = Vec::new();
 
-        // Собираем узлы, начиная с целевого бакета и расширяя область
         for offset in 0..self.buckets.len() {
             let idx = (bucket_index + offset) % self.buckets.len();
             let nodes = self.buckets[idx].get_nodes();
             closest_nodes.extend(nodes);
 
             if closest_nodes.len() >= count * 2 {
-                // Берем с запасом для точной сортировки
                 break;
             }
         }
 
-        // Сортируем по XOR расстоянию
         closest_nodes.sort_by_key(|n| n.node_id.distance_to(target_id));
 
         if closest_nodes.len() > count {

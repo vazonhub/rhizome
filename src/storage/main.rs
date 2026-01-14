@@ -1,10 +1,10 @@
 use std::fs;
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::StorageConfig;
 use crate::exceptions::StorageError;
 use crate::utils::serialization::{deserialize, serialize};
+use crate::utils::time::get_now_f64;
 use heed::types::Bytes;
 use heed::{Database, Env, EnvOpenOptions};
 use serde::{Deserialize, Serialize};
@@ -60,20 +60,13 @@ impl Storage {
         })
     }
 
-    fn get_current_time(&self) -> f64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs_f64()
-    }
-
     /// Save data in storage
     pub async fn put(&self, key: Vec<u8>, value: Vec<u8>, ttl: i32) -> Result<(), StorageError> {
         if !self.has_space(value.len()) {
             return Err(StorageError::StorageFull);
         }
 
-        let expires_at = self.get_current_time() + ttl as f64;
+        let expires_at = get_now_f64() + ttl as f64;
         let meta = MetaData {
             expires_at,
             size: value.len(),
@@ -102,14 +95,13 @@ impl Storage {
         let env = self.env.clone();
         let db = self.db;
         let meta_db = self.meta_db;
-        let current_time = self.get_current_time();
+        let current_time = get_now_f64();
 
         let key_clone = key.clone();
 
         let result = task::spawn_blocking(move || {
             let txn = env.read_txn().unwrap();
 
-            // Проверка TTL
             if let Some(meta_bytes) = meta_db.get(&txn, &key_clone).unwrap() {
                 let meta: MetaData = deserialize(meta_bytes, "msgpack").unwrap();
                 if current_time > meta.expires_at {
@@ -152,7 +144,7 @@ impl Storage {
     pub async fn extend_ttl(&self, key: Vec<u8>, extension: f64) -> Result<bool, StorageError> {
         let env = self.env.clone();
         let meta_db = self.meta_db;
-        let current_time = self.get_current_time();
+        let current_time = get_now_f64();
 
         task::spawn_blocking(move || {
             let mut txn = env.write_txn().unwrap();
@@ -186,7 +178,7 @@ impl Storage {
         let env = self.env.clone();
         let db = self.db;
         let meta_db = self.meta_db;
-        let current_time = self.get_current_time();
+        let current_time = get_now_f64();
 
         task::spawn_blocking(move || {
             let mut deleted_count = 0;

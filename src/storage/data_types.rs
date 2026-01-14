@@ -1,14 +1,6 @@
+use crate::utils::time::get_now_i64;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Map, Value};
-use std::time::{SystemTime, UNIX_EPOCH};
-
-/// Getting current time in Unix-timestamp
-fn current_time() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64
-}
 
 /// This structure describe the fields of threads
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -79,7 +71,6 @@ impl ThreadMetadata {
     /// Return Thread metadata from JSON in Rust object
     pub fn from_dict(data: Value) -> Result<Self, serde_json::Error> {
         let mut meta: Self = serde_json::from_value(data)?;
-        // Эмуляция __post_init__ при загрузке данных
         if meta.last_activity == 0 {
             meta.last_activity = meta.created_at;
         }
@@ -127,14 +118,14 @@ fn default_empty_map() -> Value {
 
 impl Message {
     pub fn new(id: String, thread_id: String) -> Self {
-        let now = current_time();
+        let now = get_now_i64();
         Self {
             id,
             thread_id,
             parent_id: None,
             content: String::new(),
             author_signature: None,
-            timestamp: now, // Логика __post_init__
+            timestamp: now,
             content_type: default_content_type(),
             attachments: Vec::new(),
             metadata: default_empty_map(),
@@ -150,7 +141,7 @@ impl Message {
     pub fn from_dict(data: Value) -> Result<Self, serde_json::Error> {
         let mut msg: Self = serde_json::from_value(data)?;
         if msg.timestamp == 0 {
-            msg.timestamp = current_time();
+            msg.timestamp = get_now_i64();
         }
         Ok(msg)
     }
