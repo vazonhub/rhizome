@@ -40,15 +40,22 @@ jobs:
         run: |
           cargo run --features uniffi/cli --bin uniffi-bindgen generate --library target/aarch64-linux-android/release/librhizome_p2p.so --language kotlin --out-dir ./bindings/android
 
-      - name: Upload Android Artifacts
+      - name: Prepare Android Bundle
+        run: |
+          mkdir -p android-bundle/jniLibs/arm64-v8a
+          mkdir -p android-bundle/jniLibs/armeabi-v7a
+          mkdir -p android-bundle/jniLibs/x86_64
+          cp target/aarch64-linux-android/release/librhizome_p2p.so android-bundle/jniLibs/arm64-v8a/
+          cp target/armv7-linux-androideabi/release/librhizome_p2p.so android-bundle/jniLibs/armeabi-v7a/
+          cp target/x86_64-linux-android/release/librhizome_p2p.so android-bundle/jniLibs/x86_64/
+          cp bindings/android/*.kt android-bundle/
+          zip -r rhizome-p2p-android.zip android-bundle
+
+      - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-rhizome-libs
-          path: |
-            target/aarch64-linux-android/release/librhizome_p2p.so
-            target/armv7-linux-androideabi/release/librhizome_p2p.so
-            target/x86_64-linux-android/release/librhizome_p2p.so
-            bindings/android/
+          path: rhizome-p2p-android.zip
 
   build-ios:
     runs-on: macos-latest
@@ -85,13 +92,15 @@ jobs:
             -headers bindings/ios \
             -output out/ios/RhizomeP2P.xcframework
 
-      - name: Upload iOS Artifacts
+      - name: Prepare iOS Bundle
+        run: |
+          zip -r rhizome-p2p-ios.zip out/ios/RhizomeP2P.xcframework bindings/ios/*.swift
+
+      - name: Upload iOS Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-rhizome-framework
-          path: |
-            out/ios/RhizomeP2P.xcframework
-            bindings/ios/*.swift
+          path: rhizome-p2p-ios.zip
 
   release:
     name: Create GitHub Release
@@ -99,11 +108,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
 
       - name: Get version from Cargo.toml
         id: get_version
@@ -111,23 +120,12 @@ jobs:
           VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d '"' -f 2)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Check if Tag exists
-        id: check_release
-        run: |
-          TAG_NAME="v${{ steps.get_version.outputs.version }}"
-          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Create GitHub Release
-        if: steps.check_release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            android-rhizome-libs/**
-            ios-rhizome-framework/**
+            rhizome-p2p-android.zip
+            rhizome-p2p-ios.zip
           tag_name: v${{ steps.get_version.outputs.version }}
           name: Release v${{ steps.get_version.outputs.version }}
           generate_release_notes: true
