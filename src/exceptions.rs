@@ -10,7 +10,8 @@ use thiserror::Error;
 ///
 /// This enum wraps specialized errors from different subsystems (DHT, Storage, etc.).
 /// It allows for high-level error handling while preserving specific error details.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, uniffi::Error)]
+#[uniffi(flat_error)]
 pub enum RhizomeError {
     /// Errors occurring during Distributed Hash Table (DHT) operations.
     #[error("DHT error: {0}")]
@@ -34,7 +35,7 @@ pub enum RhizomeError {
 }
 
 /// Errors specific to DHT (Kademlia) operations.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, uniffi::Error)]
 pub enum DHTError {
     /// The requested node could not be found in the routing table.
     #[error("Node not found")]
@@ -50,7 +51,7 @@ pub enum DHTError {
 }
 
 /// Errors specific to local data storage and replication.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, uniffi::Error)]
 pub enum StorageError {
     /// The local storage limit has been reached.
     #[error("Storage full")]
@@ -66,7 +67,7 @@ pub enum StorageError {
 }
 
 /// Errors specific to network transport and connectivity.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, uniffi::Error)]
 pub enum NetworkError {
     /// The node failed to join the network through the provided bootstrap addresses.
     #[error("Bootstrap process failed")]
@@ -82,7 +83,7 @@ pub enum NetworkError {
 }
 
 /// Errors specific to security, authentication, and integrity checks.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, uniffi::Error)]
 pub enum SecurityError {
     /// The cryptographic signature of a message or block is invalid.
     #[error("Invalid signature")]
