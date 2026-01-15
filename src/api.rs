@@ -35,6 +35,7 @@ pub mod replication;
 pub mod security;
 /// Local storage in node for fast data choosing
 pub mod storage;
+/// Support module for uniffi (need to build mobile versions)
 mod uniffi_bindgen;
 /// Some help functional for work with serialization and crypto
 pub mod utils;
