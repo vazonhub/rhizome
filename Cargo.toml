@@ -13,7 +13,7 @@ categories = ["network-programming", "asynchronous"]
 
 [lib]
 name = "rhizome_p2p"
-crate-type = ["cdylib", "rlib", "staticlib"]
+crate-type = ["staticlib", "cdylib", "rlib"]
 path = "src/api.rs"
 
 [dependencies]
@@ -35,6 +35,10 @@ hex = "0.4.3"
 rsa = { version = "0.9.10", features = ["sha2"] }
 sha1 = "0.10"
 sha2 = "0.10"
+uniffi = { version = "0.31", features = ["tokio", "cli"] }
+
+[build-dependencies]
+uniffi = { version = "0.31", features = ["build"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
