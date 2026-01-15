@@ -7,14 +7,103 @@ on:
 permissions:
   contents: write
 
+env:
+  NDK-VERSION: r26b
+
 jobs:
+  build-android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: ${{ env.NDK-VERSION }}
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Build Android Binaries
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 build --release
+
+      - name: Generate UniFFI Bindings (Kotlin)
+        run: |
+          cargo run --features uniffi/cli -- uniffi-bindgen generate --library target/aarch64-linux-android/release/librhizome_p2p.so --language kotlin --out-dir ./bindings/android
+
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-rhizome-libs
+          path: |
+            target/aarch64-linux-android/release/librhizome_p2p.so
+            target/armv7-linux-androideabi/release/librhizome_p2p.so
+            target/x86_64-linux-android/release/librhizome_p2p.so
+            bindings/android/
+
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios, aarch64-apple-ios-sim, x86_64-apple-ios
+
+      - name: Build iOS Binaries
+        run: |
+          cargo build --target aarch64-apple-ios --release
+          cargo build --target aarch64-apple-ios-sim --release
+          cargo build --target x86_64-apple-ios --release
+
+      - name: Create XCFramework
+        run: |
+          mkdir -p out/ios
+          mkdir -p bindings/ios
+          
+          cargo run --features uniffi/cli -- uniffi-bindgen generate --library target/aarch64-apple-ios-sim/release/librhizome_p2p.a --language swift --out-dir ./bindings/ios
+          
+          lipo -create \
+            target/aarch64-apple-ios-sim/release/librhizome_p2p.a \
+            target/x86_64-apple-ios/release/librhizome_p2p.a \
+            -output target/ios-sim-universal.a
+
+          xcodebuild -create-xcframework \
+            -library target/aarch64-apple-ios/release/librhizome_p2p.a \
+            -headers bindings/ios \
+            -library target/ios-sim-universal.a \
+            -headers bindings/ios \
+            -output out/ios/RhizomeP2P.xcframework
+
+      - name: Upload iOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-rhizome-framework
+          path: |
+            out/ios/RhizomeP2P.xcframework
+            bindings/ios/*.swift
+
   release:
     name: Create GitHub Release
-    runs-on: ubuntu-latest
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
 
       - name: Get version from Cargo.toml
         id: get_version
@@ -22,7 +111,7 @@ jobs:
           VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d '"' -f 2)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Check if Release exists
+      - name: Check if Tag exists
         id: check_release
         run: |
           TAG_NAME="v${{ steps.get_version.outputs.version }}"
@@ -36,10 +125,11 @@ jobs:
         if: steps.check_release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.get_version.outputs.version }}
+          files: |
+            android-rhizome-libs/**
+            ios-rhizome-framework/**
+          tag_name: v${{ std.get_version.outputs.version }}
           name: Release v${{ steps.get_version.outputs.version }}
           generate_release_notes: true
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
