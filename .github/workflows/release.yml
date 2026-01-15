@@ -38,20 +38,24 @@ jobs:
 
       - name: Generate UniFFI Bindings (Kotlin)
         run: |
-          cargo run --features uniffi/cli --bin uniffi-bindgen generate --library target/aarch64-linux-android/release/librhizome_p2p.so --language kotlin --out-dir ./bindings/android
+          mkdir -p bindings/android
+          cargo run --features uniffi/cli --bin uniffi-bindgen generate --library target/aarch64-linux-android/release/librhizome_p2p.so --language kotlin --out-dir bindings/android
 
       - name: Prepare Android Bundle
         run: |
           mkdir -p android-bundle/jniLibs/arm64-v8a
           mkdir -p android-bundle/jniLibs/armeabi-v7a
           mkdir -p android-bundle/jniLibs/x86_64
+          
           cp target/aarch64-linux-android/release/librhizome_p2p.so android-bundle/jniLibs/arm64-v8a/
           cp target/armv7-linux-androideabi/release/librhizome_p2p.so android-bundle/jniLibs/armeabi-v7a/
           cp target/x86_64-linux-android/release/librhizome_p2p.so android-bundle/jniLibs/x86_64/
-          cp bindings/android/*.kt android-bundle/
+          
+          find bindings/android -name "*.kt" -exec cp {} android-bundle/ \;
+          
           zip -r rhizome-p2p-android.zip android-bundle
 
-      - name: Upload Android Artifact
+      - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-rhizome-libs
