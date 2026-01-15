@@ -52,51 +52,51 @@ rhizome/
 │   └── security/        # The security module
 ```
 
-## 🛠 Установка и разработка
-Для сборки проекта вам понадобится Rust версии 1.85 или выше (так как используется Edition 2024).
+## 🛠 Setup and develop
+For project build you need Rust version 1.85+ (because we will use Edition 2024).
 ```code
 rustup update stable
 ```
 
-### Клонирование и сборка
+### Clone and build
 ```code
 Bash
 git clone https://github.com/vazonhub/rhizome.git
 cd rhizome
 
-# Сборка библиотеки и бинарных файлов
 cargo build
 ```
 
-### Запуск тестов
-В проекте используются как модульные, так и интеграционные тесты:
+### Run tests
+For running tests you can use:
 ```code
 Bash
-# Запустить все тесты
+# Run all tests
 cargo test
 
-# Запустить тесты с выводом логов в консоль
+# Run tests with logs in console
 RUST_LOG=debug cargo test -- --nocapture
 ```
 
-### Статический анализ и форматирование
-В проект интегрирован cargo-husky. Это значит, что при выполнении cargo test автоматически проверяются:
-- Форматирование (`cargo fmt`)
-- Линтер (`cargo clippy`)
+### Static analyze and formating
+In project, we have some feature for code analyze and formating:
+- Formating by (`cargo fmt`)
+- Analyze linter by (`cargo clippy`)
 
 ## 🤝 Participation in the development
-Мы приветствуем Pull Requests!
-1. Create repo form from master;
+We are happy to see your Pull Requests!
+1. Create fork from `develop` branch;
 2. Create branch: `git checkout -b feature/amazing-feature`;
 3. Commit changes: `git commit -m 'Add amazing feature'`;
 4. Create push in your branch: `git push origin feature/amazing-feature`;
-5. Open `Pull Request`.
+5. Check [pre-commit](./.github/hooks/pre-commit) result. If you have any troubles you can't push anything.
+6. Open `Pull Request`.
 
-> We use git flow in branch architecture.
+> We use git flow in branch architecture.</br>
 > Create your pull request in `develop` branch.
 
 ## 📄 License
-Distributed under the MIT license. Details in the file [LICENSE](./LICENSE.txt).
+Distributed under the Apache 2.0 license. Details in the file [LICENSE](./LICENSE.txt).
 
 ## 👥 Author
 Rhizome Dev Team - [GitHub](https://github.com/orgs/vazonhub/people).
