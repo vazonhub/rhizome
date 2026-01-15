@@ -37,6 +37,7 @@ pub mod security;
 pub mod storage;
 /// Some help functional for work with serialization and crypto
 pub mod utils;
+mod uniffi_bindgen;
 
 use std::path::PathBuf;
 use std::sync::Arc;
