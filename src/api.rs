@@ -35,9 +35,9 @@ pub mod replication;
 pub mod security;
 /// Local storage in node for fast data choosing
 pub mod storage;
+mod uniffi_bindgen;
 /// Some help functional for work with serialization and crypto
 pub mod utils;
-mod uniffi_bindgen;
 
 use std::path::PathBuf;
 use std::sync::Arc;
