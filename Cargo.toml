@@ -13,7 +13,7 @@ categories = ["network-programming", "asynchronous"]
 
 [lib]
 name = "rhizome_p2p"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib", "rlib", "staticlib"]
 path = "src/api.rs"
 
 [dependencies]

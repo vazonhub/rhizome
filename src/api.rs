@@ -48,6 +48,7 @@ use crate::storage::keys::KeyManager;
 use crate::utils::crypto::hash_key;
 use crate::utils::serialization::{deserialize, serialize};
 use crate::utils::time::get_now_i64;
+use crate::exceptions::{RhizomeError, DHTError, NetworkError, Result as RhizomeResult};
 
 /// API client for work with protocol
 pub struct RhizomeClient {
@@ -82,7 +83,7 @@ impl RhizomeClient {
 
     pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if self.is_running {
-            return Err("Node is already running".into());
+            return Err(RhizomeError::Network(NetworkError::General).into());
         }
 
         let node = FullNode::new(self.config.clone()).await?;
@@ -97,14 +98,13 @@ impl RhizomeClient {
         Ok(())
     }
 
-    pub async fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn stop(&mut self) -> RhizomeResult<()> {
         if let Some(node) = self.node.take()
             && self.is_running
         {
-            node.stop().await.expect("TODO: panic message");
+            node.stop().await.map_err(|_| RhizomeError::Network(NetworkError::General))?;
             self.is_running = false;
         }
-
         Ok(())
     }
 
@@ -117,7 +117,7 @@ impl RhizomeClient {
         creator_pubkey: Option<String>,
         ttl: i32,
     ) -> Result<ThreadMetadata, Box<dyn std::error::Error>> {
-        let node = self.node.as_ref().ok_or("Node not running")?;
+        let node = self.node.as_ref().ok_or(RhizomeError::Dht(DHTError::NodeNotFound))?;
 
         let creator = creator_pubkey
             .unwrap_or_else(|| format!("0x{}", hex::encode(&hash_key(thread_id.as_bytes())[..8])));
@@ -137,12 +137,21 @@ impl RhizomeClient {
         };
 
         let meta_key = self.key_manager.get_thread_meta_key(thread_id);
-        let meta_data = serialize(&thread_meta, "msgpack")?;
+        let meta_data = serialize(&thread_meta, "msgpack")
+            .map_err(|_| RhizomeError::Dht(DHTError::General))?;
+        node.store(&meta_key, &meta_data, ttl).await?;
 
-        let success = node.store(&meta_key, &meta_data, ttl).await?;
+        let threads_key = self.key_manager.get_global_threads_key();
+        let mut thread_list: Vec<String> = match node.find_value(&threads_key).await {
+            Ok(data) => deserialize(&data, "msgpack").unwrap_or_default(),
+            Err(_) => Vec::new(),
+        };
 
-        if !success {
-            return Err(format!("Failed to create thread: {}", thread_id).into());
+        if !thread_list.contains(&thread_id.to_string()) {
+            thread_list.push(thread_id.to_string());
+            let list_data = serialize(&thread_list, "msgpack")
+                .map_err(|_| RhizomeError::Dht(DHTError::General))?;
+            node.store(&threads_key, &list_data, 86400).await?;
         }
 
         Ok(thread_meta)
@@ -152,12 +161,13 @@ impl RhizomeClient {
         &self,
         thread_id: &str,
     ) -> Result<Option<ThreadMetadata>, Box<dyn std::error::Error>> {
-        let node = self.node.as_ref().ok_or("Node not running")?;
+        let node = self.node.as_ref().ok_or(RhizomeError::Dht(DHTError::NodeNotFound))?;
         let meta_key = self.key_manager.get_thread_meta_key(thread_id);
 
         match node.find_value(&meta_key).await {
             Ok(data) => {
-                let thread_meta: ThreadMetadata = deserialize(&data, "msgpack")?;
+                let thread_meta: ThreadMetadata = deserialize(&data, "msgpack")
+                    .map_err(|_| RhizomeError::Dht(DHTError::General))?;
                 Ok(Some(thread_meta))
             }
             Err(_) => Ok(None),
@@ -188,7 +198,8 @@ impl RhizomeClient {
 
         let node = self.node.as_ref().unwrap();
         let meta_key = self.key_manager.get_thread_meta_key(thread_id);
-        let meta_data = serialize(&thread_meta, "msgpack")?;
+        let meta_data = serialize(&thread_meta, "msgpack")
+            .map_err(|_| RhizomeError::Dht(DHTError::General))?;
 
         node.store(&meta_key, &meta_data, 86400).await?;
 
@@ -204,12 +215,10 @@ impl RhizomeClient {
         content_type: &str,
         ttl: i32,
     ) -> Result<Message, Box<dyn std::error::Error>> {
-        let node = self.node.as_ref().ok_or("Node not running")?;
+        let node = self.node.as_ref().ok_or(RhizomeError::Dht(DHTError::NodeNotFound))?;
 
-        let thread_meta = self
-            .find_thread(thread_id)
-            .await?
-            .ok_or_else(|| format!("Thread not found: {}", thread_id))?;
+        let thread_meta = self.find_thread(thread_id).await?
+            .ok_or(RhizomeError::Dht(DHTError::ValueNotFound))?;
 
         let timestamp = get_now_i64();
         let message_id = format!("msg_{}_{}", thread_id, timestamp);
@@ -232,12 +241,13 @@ impl RhizomeClient {
 
         let message_hash = hex::encode(&hash_key(message_id.as_bytes())[..8]);
         let message_key = self.key_manager.get_message_key(&message_hash);
-        let message_data = serialize(&message, "msgpack")?;
+        let message_data = serialize(&message, "msgpack")
+            .map_err(|_| RhizomeError::Dht(DHTError::General))?;
 
         let success = node.store(&message_key, &message_data, ttl).await?;
 
         if !success {
-            return Err("Failed to store message".into());
+            return Err(RhizomeError::Dht(DHTError::General).into());
         }
 
         let updates = serde_json::json!({
@@ -253,7 +263,7 @@ impl RhizomeClient {
         &self,
         limit: usize,
     ) -> Result<Vec<Value>, Box<dyn std::error::Error>> {
-        let node = self.node.as_ref().ok_or("Node not running")?;
+        let node = self.node.as_ref().ok_or(RhizomeError::Dht(DHTError::NodeNotFound))?;
 
         let all_metrics = node
             .metrics_collector
@@ -285,14 +295,15 @@ impl RhizomeClient {
         tags: Option<Vec<&str>>,
     ) -> Result<Vec<ThreadMetadata>, Box<dyn std::error::Error>> {
         let threads_key = self.key_manager.get_global_threads_key();
-        let node = self.node.as_ref().ok_or("Node not running")?;
+        let node = self.node.as_ref().ok_or(RhizomeError::Dht(DHTError::NodeNotFound))?;
 
         let data = match node.find_value(&threads_key).await {
             Ok(d) => d,
             Err(_) => return Ok(vec![]),
         };
 
-        let thread_ids: Vec<String> = deserialize(&data, "msgpack")?;
+        let thread_ids: Vec<String> = deserialize(&data, "msgpack")
+            .map_err(|_| RhizomeError::Dht(DHTError::General))?;
         let mut results = Vec::new();
 
         for id in thread_ids {
