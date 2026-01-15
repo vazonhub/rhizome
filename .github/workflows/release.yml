@@ -128,7 +128,7 @@ jobs:
           files: |
             android-rhizome-libs/**
             ios-rhizome-framework/**
-          tag_name: v${{ std.get_version.outputs.version }}
+          tag_name: v${{ steps.get_version.outputs.version }}
           name: Release v${{ steps.get_version.outputs.version }}
           generate_release_notes: true
         env:
