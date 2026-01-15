@@ -8,7 +8,8 @@ permissions:
   contents: write
 
 env:
-  NDK-VERSION: r26b
+  NDK_VERSION: r26b
+  UNIFFI_VERSION: 0.28.0
 
 jobs:
   build-android:
@@ -21,11 +22,14 @@ jobs:
         with:
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android
 
+      - name: Install uniffi-bindgen CLI
+        run: cargo install uniffi_bindgen --version ${{ env.UNIFFI_VERSION }}
+
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
-          ndk-version: ${{ env.NDK-VERSION }}
+          ndk-version: ${{ env.NDK_VERSION }}
 
       - name: Install cargo-ndk
         run: cargo install cargo-ndk
@@ -38,7 +42,7 @@ jobs:
 
       - name: Generate UniFFI Bindings (Kotlin)
         run: |
-          cargo run --features uniffi/cli -- uniffi-bindgen generate --library target/aarch64-linux-android/release/librhizome_p2p.so --language kotlin --out-dir ./bindings/android
+          uniffi-bindgen generate --library target/aarch64-linux-android/release/librhizome_p2p.so --language kotlin --out-dir ./bindings/android
 
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
@@ -60,6 +64,9 @@ jobs:
         with:
           targets: aarch64-apple-ios, aarch64-apple-ios-sim, x86_64-apple-ios
 
+      - name: Install uniffi-bindgen CLI
+        run: cargo install uniffi_bindgen --version ${{ env.UNIFFI_VERSION }}
+
       - name: Build iOS Binaries
         run: |
           cargo build --target aarch64-apple-ios --release
@@ -71,7 +78,7 @@ jobs:
           mkdir -p out/ios
           mkdir -p bindings/ios
           
-          cargo run --features uniffi/cli -- uniffi-bindgen generate --library target/aarch64-apple-ios-sim/release/librhizome_p2p.a --language swift --out-dir ./bindings/ios
+          uniffi-bindgen generate --library target/aarch64-apple-ios/release/librhizome_p2p.a --language swift --out-dir ./bindings/ios
           
           lipo -create \
             target/aarch64-apple-ios-sim/release/librhizome_p2p.a \
