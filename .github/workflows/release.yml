@@ -71,8 +71,8 @@ jobs:
           mkdir -p out/ios
           mkdir -p bindings/ios
           
-          cargo run --features uniffi/cli -- uniffi-bindgen generate --library target/aarch64-apple-ios-sim/release/librhizome_p2p.a --language swift --out-dir ./bindings/ios
-          
+          uniffi-bindgen generate --library target/aarch64-apple-ios/release/librhizome_p2p.a --language swift --out-dir ./bindings/ios
+  
           lipo -create \
             target/aarch64-apple-ios-sim/release/librhizome_p2p.a \
             target/x86_64-apple-ios/release/librhizome_p2p.a \
