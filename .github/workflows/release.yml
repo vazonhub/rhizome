@@ -106,7 +106,7 @@ jobs:
           name: ios-rhizome-framework
           path: rhizome-p2p-ios.zip
 
-release:
+  release:
     name: Create GitHub Release
     needs: [build-android, build-ios]
     runs-on: ubuntu-24.04
