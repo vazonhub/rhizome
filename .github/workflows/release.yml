@@ -124,6 +124,32 @@ jobs:
           VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d '"' -f 2)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Push binaries to NPM repo
+        env:
+          NPM_REPO_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
+        run: |
+          git config --global user.email "bot@rhizome.io"
+          git config --global user.name "Rhizome Bot"
+          
+          git clone https://x-access-token:${{ env.NPM_REPO_TOKEN }}@github.com:vazonhub/react-native-rhizome.git bridge
+          
+          unzip rhizome-p2p-android.zip -d android_tmp
+          mkdir -p bridge/android/libs
+          cp -r android_tmp/android-bundle/jniLibs/* bridge/android/src/main/jniLibs/
+          cp android_tmp/android-bundle/*.kt bridge/android/src/main/java/com/rhizome/
+          
+          unzip rhizome-p2p-ios.zip -d ios_tmp
+          mkdir -p bridge/ios/Frameworks
+          cp -r ios_tmp/ios-bundle/RhizomeP2P.xcframework bridge/ios/Frameworks/
+          cp ios_tmp/ios-bundle/*.swift bridge/ios/
+          
+          cd bridge
+          npm version ${{ steps.get_version.outputs.version }} --no-git-tag-version
+          
+          git add .
+          git commit -m "chore: updated binaries to v${{ steps.get_version.outputs.version }}"
+          git push origin master
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
