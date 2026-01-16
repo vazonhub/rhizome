@@ -81,30 +81,30 @@ jobs:
         run: |
           mkdir -p out/ios
           mkdir -p bindings/ios
+          mkdir -p target/simulator-fat
           
           cargo run --features uniffi/cli --bin uniffi-bindgen generate --library target/aarch64-apple-ios/release/librhizome_p2p.a --language swift --out-dir ./bindings/ios
           
           lipo -create \
             target/aarch64-apple-ios-sim/release/librhizome_p2p.a \
             target/x86_64-apple-ios/release/librhizome_p2p.a \
-            -output target/ios-sim-universal.a
-
+            -output target/simulator-fat/librhizome_p2p.a
+          
+          HEADER_DIR=$(find bindings/ios -name "*.h" -exec dirname {} \; | head -n 1)
+          
           xcodebuild -create-xcframework \
             -library target/aarch64-apple-ios/release/librhizome_p2p.a \
-            -headers bindings/ios \
-            -library target/ios-sim-universal.a \
-            -headers bindings/ios \
+            -headers "$HEADER_DIR" \
+            -library target/simulator-fat/librhizome_p2p.a \
+            -headers "$HEADER_DIR" \
             -output out/ios/RhizomeP2P.xcframework
 
       - name: Prepare iOS Bundle
         run: |
-          zip -r rhizome-p2p-ios.zip out/ios/RhizomeP2P.xcframework bindings/ios/*.swift
-
-      - name: Upload iOS Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-rhizome-framework
-          path: rhizome-p2p-ios.zip
+          mkdir -p ios-bundle
+          find bindings/ios -name "*.swift" -exec cp {} ios-bundle/ \;
+          cp -r out/ios/RhizomeP2P.xcframework ios-bundle/
+          zip -r rhizome-p2p-ios.zip ios-bundle
 
   release:
     name: Create GitHub Release
