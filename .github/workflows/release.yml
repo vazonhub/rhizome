@@ -131,7 +131,7 @@ jobs:
           git config --global user.email "bot@rhizome.io"
           git config --global user.name "Rhizome Bot"
           
-          git clone https://x-access-token:${{ env.NPM_REPO_TOKEN }}@github.com:vazonhub/react-native-rhizome.git bridge
+          git clone https://x-access-token:${{ env.NPM_REPO_TOKEN }}@github.com/vazonhub/react-native-rhizome.git bridge
           
           unzip rhizome-p2p-android.zip -d android_tmp
           mkdir -p bridge/android/libs
