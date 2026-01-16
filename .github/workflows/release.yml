@@ -106,7 +106,7 @@ jobs:
           name: ios-rhizome-framework
           path: rhizome-p2p-ios.zip
 
-  release:
+release:
     name: Create GitHub Release
     needs: [build-android, build-ios]
     runs-on: ubuntu-24.04
@@ -136,37 +136,33 @@ jobs:
           git clone https://x-access-token:${{ env.NPM_REPO_TOKEN }}@github.com/vazonhub/react-native-rhizome.git bridge
           
           unzip rhizome-p2p-android.zip -d android_tmp
-          
-          mkdir -p bridge/android/src/main/jniLibs/arm64-v8a
-          mkdir -p bridge/android/src/main/jniLibs/armeabi-v7a
-          mkdir -p bridge/android/src/main/jniLibs/x86_64
+          mkdir -p bridge/android/src/main/jniLibs
           mkdir -p bridge/android/src/main/java/com/rhizome
           
-          cp android_tmp/android-bundle/jniLibs/arm64-v8a/*.so bridge/android/src/main/jniLibs/arm64-v8a/
-          cp android_tmp/android-bundle/jniLibs/armeabi-v7a/*.so bridge/android/src/main/jniLibs/armeabi-v7a/
-          cp android_tmp/android-bundle/jniLibs/x86_64/*.so bridge/android/src/main/jniLibs/x86_64/
+          JNILIBS_SRC=$(find android_tmp -name "jniLibs" -type d | head -n 1)
+          cp -r $JNILIBS_SRC/* bridge/android/src/main/jniLibs/
           
-          cp android_tmp/android-bundle/*.kt bridge/android/src/main/java/com/rhizome/
+          find android_tmp -name "*.kt" -exec cp {} bridge/android/src/main/java/com/rhizome/ \;
           
           unzip rhizome-p2p-ios.zip -d ios_tmp
-          
           mkdir -p bridge/ios/Frameworks
           
+          XCFRAMEWORK_PATH=$(find ios_tmp -name "*.xcframework" -type d | head -n 1)
           rm -rf bridge/ios/Frameworks/RhizomeP2P.xcframework
-          cp -r ios_tmp/ios-bundle/RhizomeP2P.xcframework bridge/ios/Frameworks/
+          cp -r "$XCFRAMEWORK_PATH" bridge/ios/Frameworks/
           
-          cp ios_tmp/ios-bundle/*.swift bridge/ios/
+          find ios_tmp -name "*.swift" -exec cp {} bridge/ios/ \;
           
           cd bridge
           
-          npm version ${{ steps.get_version.outputs.version }} --no-git-tag-version || echo "Version already set"
+          npm version ${{ steps.get_version.outputs.version }} --no-git-tag-version || echo "Version sync skipped"
           
           git add .
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
             git commit -m "chore: updated native binaries to v${{ steps.get_version.outputs.version }}"
-            git push origin master
+            git push origin master || git push origin main
           fi
 
       - name: Create GitHub Release
